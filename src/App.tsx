@@ -46,6 +46,9 @@ const projects = [
     description: 'A living climate interface that transforms atmospheric data into generative spatial systems.',
     tags: ['NEXT.JS', 'THREE.JS', 'GLSL'],
     theme: 'weather',
+    device: 'phone',
+    platform: 'IOS / SPATIAL INTERFACE',
+    result: '2.4M LIVE SESSIONS',
   },
   {
     index: '02',
@@ -55,6 +58,9 @@ const projects = [
     description: 'An uncompromising digital flagship and modular commerce engine for an independent fashion house.',
     tags: ['REACT', 'WEBGL', 'SHOPIFY'],
     theme: 'noir',
+    device: 'laptop',
+    platform: 'WEB / COMMERCE PLATFORM',
+    result: '+38% CONVERSION',
   },
   {
     index: '03',
@@ -64,6 +70,9 @@ const projects = [
     description: 'A non-linear cultural archive where sound, image, and language collide in real time.',
     tags: ['TYPESCRIPT', 'R3F', 'WEB AUDIO'],
     theme: 'memory',
+    device: 'phone',
+    platform: 'IOS / CULTURAL ARCHIVE',
+    result: '120K STORIES INDEXED',
   },
 ]
 
@@ -5282,35 +5291,66 @@ function PrinciplesSection() {
 
 function TechnologySection() {
   const [activeTech, setActiveTech] = useState('THREE.JS')
+  const activeIndex = technologies.indexOf(activeTech)
+  const groups = [
+    { name: 'INTERFACE', items: technologies.slice(0, 4) },
+    { name: 'MOTION', items: technologies.slice(4, 8) },
+    { name: 'SYSTEMS', items: technologies.slice(8, 12) },
+    { name: 'EXPERIMENT', items: technologies.slice(12, 16) },
+  ]
 
   return (
     <section className="technology-section">
       <div className="tech-head">
-        <div className="section-tag"><span>08</span> / TOOLKIT</div>
-        <p>TOOLS CHANGE. CURIOSITY DOESN'T.</p>
-      </div>
-      <div className="tech-stage">
-        <div className="tech-radar" aria-hidden="true">
-          <motion.div animate={{ rotate: 360 }} transition={{ duration: 14, repeat: Infinity, ease: 'linear' }}><i /></motion.div>
-          <strong>{activeTech}</strong>
-          <span>ACTIVE MODULE</span>
+        <div>
+          <div className="section-tag"><span>08</span> / TOOLKIT</div>
+          <h2>TOOLS, CHOSEN<br /><i>WITH INTENTION.</i></h2>
         </div>
-        <div className="technology-cloud">
-          {technologies.map((technology, index) => (
-            <motion.button
-              key={technology}
-              className={activeTech === technology ? 'is-active' : ''}
-              onMouseEnter={() => setActiveTech(technology)}
-              onFocus={() => setActiveTech(technology)}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.035 }}
+        <div className="tech-head-meta">
+          <span>AN EVOLVING PRACTICE</span>
+          <p>The stack is never the story. These are simply the materials I trust to make digital work feel precise, expressive, and effortless.</p>
+        </div>
+      </div>
+      <div className="tech-gallery">
+        <div className="tech-canvas" aria-hidden="true">
+          <div className="tech-canvas-number">{String(activeIndex + 1).padStart(2, '0')}</div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              className="tech-canvas-word"
+              key={activeTech}
+              initial={{ opacity: 0, y: 30, rotate: 2, filter: 'blur(10px)' }}
+              animate={{ opacity: 1, y: 0, rotate: 0, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, y: -25, rotate: -2, filter: 'blur(10px)' }}
+              transition={{ duration: .65, ease: [0.22, 1, 0.36, 1] }}
             >
-              {technology}
-            </motion.button>
+              {activeTech}
+            </motion.div>
+          </AnimatePresence>
+          <motion.div className="tech-sculpture" animate={{ rotate: activeIndex * 22 }} transition={{ duration: 1.1, ease: [0.22,1,0.36,1] }}>
+            <i /><i /><i /><b />
+          </motion.div>
+          <div className="tech-canvas-caption"><span>DIGITAL MATERIAL / {String(activeIndex + 1).padStart(2, '0')}</span><span>FORM FOLLOWS PURPOSE</span></div>
+          <motion.div className="tech-light" animate={{ x: ['-20%', '25%', '-20%'], y: ['-5%', '10%', '-5%'] }} transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }} />
+        </div>
+        <div className="tech-list">
+          {groups.map((group, groupIndex) => (
+            <motion.div className="tech-group" key={group.name} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: groupIndex * .08 }}>
+              <span>{String(groupIndex + 1).padStart(2, '0')} / {group.name}</span>
+              <div>
+                {group.items.map((technology) => (
+                  <button key={technology} className={activeTech === technology ? 'is-active' : ''} onMouseEnter={() => setActiveTech(technology)} onFocus={() => setActiveTech(technology)} onClick={() => setActiveTech(technology)}>
+                    <span>{technology}</span><ArrowUpRight />
+                  </button>
+                ))}
+              </div>
+            </motion.div>
           ))}
         </div>
+      </div>
+      <div className="tech-footnote">
+        <p>Technique in service of <i>clarity.</i></p>
+        <span>DESIGN / CODE / MOTION / 2014—2026</span>
+        <motion.div animate={{ scaleX: [0, 1, 0], x: ['-100%', '0%', '100%'] }} transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }} />
       </div>
     </section>
   )
@@ -5429,46 +5469,188 @@ function SignalFieldSection() {
   )
 }
 
-function ProjectArt({ theme, title }: { theme: string; title: string }) {
+function PhoneScreen({ theme, active }: { theme: string; active: boolean }) {
+  if (theme === 'weather') {
+    return (
+      <div className="device-ui weather-ui">
+        <div className="mobile-status"><span>9:41</span><span><i /><i /><b /></span></div>
+        <div className="weather-mobile-head"><span>NEW YORK CITY</span><button aria-label="Weather menu"><i /><i /></button></div>
+        <div className="weather-mobile-copy"><small>THURSDAY / SEP 08</small><strong>18°</strong><span>FEELS LIKE 16°</span></div>
+        <motion.div className="mobile-weather-planet" animate={{ rotate: active ? 180 : 0 }} transition={{ duration: 8, ease: 'linear' }}>
+          <i /><i /><i />
+        </motion.div>
+        <div className="weather-mobile-stats">
+          <div><span>WIND</span><strong>12 <small>KM/H</small></strong></div>
+          <div><span>HUMIDITY</span><strong>67<small>%</small></strong></div>
+          <div><span>VISIBILITY</span><strong>9.2 <small>KM</small></strong></div>
+        </div>
+        <div className="mobile-forecast">
+          {['NOW', '11', '12', '13', '14'].map((hour, index) => <div className={index === 0 ? 'is-current' : ''} key={hour}><span>{hour}</span><i /><strong>{18 + index}°</strong></div>)}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="device-ui memory-ui">
+      <div className="mobile-status"><span>9:41</span><span><i /><i /><b /></span></div>
+      <div className="memory-mobile-head"><span>SM / 0432</span><Asterisk /></div>
+      <div className="memory-mobile-title"><small>AN ORAL HISTORY ARCHIVE</small><strong>MEMORY<br />IS A <i>PLACE.</i></strong></div>
+      <motion.div className="memory-mobile-disc" animate={{ rotate: active ? 360 : 0 }} transition={{ duration: 16, repeat: Infinity, ease: 'linear' }}><i /><b /></motion.div>
+      <div className="memory-wave" aria-hidden="true">{Array.from({ length: 34 }, (_, index) => <i style={{ height: `${15 + ((index * 17) % 48)}%` }} key={index} />)}</div>
+      <div className="memory-player"><button aria-label="Play story"><Play /></button><div><strong>THE BLUE HOUSE</strong><span>ALMA REYES / 04:32</span></div><span>02:17</span></div>
+      <div className="memory-mobile-footer"><span>DISCOVER</span><span>ARCHIVE</span><span>ABOUT</span></div>
+    </div>
+  )
+}
+
+function LaptopScreen({ active }: { active: boolean }) {
+  return (
+    <div className="device-ui noir-ui">
+      <div className="noir-browser-bar"><span><i /><i /><i /></span><b>NOIR.SYSTEMS / COLLECTION_06</b><span>EN / USD</span></div>
+      <div className="noir-site-nav"><strong>NØIR</strong><div><span>COLLECTIONS</span><span>OBJECTS</span><span>STUDIO</span></div><span>BAG / 02</span></div>
+      <div className="noir-screen-hero">
+        <div className="noir-screen-copy"><small>EDITION / 006</small><strong>FORM<br />FOLLOWS<br /><i>FEELING.</i></strong><button>EXPLORE COLLECTION <ArrowUpRight /></button></div>
+        <div className="noir-product-stage">
+          <motion.div className="noir-product" animate={{ y: active ? [-5, 5, -5] : 0, rotate: active ? [-1, 1, -1] : 0 }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}><i /><i /><b /></motion.div>
+          <span>OBJECT 014<br />ENGINEERED WOOL</span>
+          <div className="noir-index">01 <i /> 06</div>
+        </div>
+      </div>
+      <motion.div className="noir-screen-ticker" animate={{ x: active ? ['0%', '-50%'] : '0%' }} transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}><span>NEW FORMS / RESPONSIBLE MATERIALS / MADE IN NEW YORK / NEW FORMS / RESPONSIBLE MATERIALS / MADE IN NEW YORK /</span></motion.div>
+    </div>
+  )
+}
+
+function PhoneDevice({ theme, active }: { theme: string; active: boolean }) {
+  return (
+    <div className="phone-device">
+      <div className="phone-body-depth" aria-hidden="true">
+        <i className="phone-depth-left" />
+        <i className="phone-depth-right" />
+        <i className="phone-depth-top" />
+        <i className="phone-depth-bottom" />
+      </div>
+      <div className="phone-button phone-action" />
+      <div className="phone-button phone-volume-up" />
+      <div className="phone-button phone-volume-down" />
+      <div className="phone-button phone-power" />
+      <div className="phone-chassis">
+        <div className="phone-antenna antenna-top" />
+        <div className="phone-antenna antenna-bottom" />
+        <div className="phone-glass">
+          <div className="phone-screen"><PhoneScreen theme={theme} active={active} /><div className="screen-reflection" /></div>
+          <div className="phone-island"><div className="phone-speaker" /><div className="phone-camera"><i /></div></div>
+          <div className="phone-home-indicator" />
+        </div>
+      </div>
+      <div className="phone-port" aria-hidden="true"><i /><i /><i /><i /><b /></div>
+      <div className="phone-floor-shadow" />
+    </div>
+  )
+}
+
+function LaptopDevice({ active }: { active: boolean }) {
+  const keyboardRows = [
+    ['esc', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '−', '=', 'del'],
+    ['tab', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[', ']', '\\'],
+    ['caps', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', "'", 'return'],
+    ['shift', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '.', '/', 'shift'],
+    ['fn', 'ctrl', 'opt', 'cmd', '', 'cmd', 'opt', '←', '↑', '↓', '→'],
+  ]
+
+  return (
+    <div className="laptop-pro">
+      <div className="laptop-pro-display">
+        <div className="laptop-pro-shell" />
+        <div className="laptop-pro-bezel">
+          <div className="laptop-pro-camera"><i /></div>
+          <div className="laptop-pro-screen"><LaptopScreen active={active} /><div className="screen-reflection" /></div>
+        </div>
+        <div className="laptop-pro-lid-edge lid-edge-left" />
+        <div className="laptop-pro-lid-edge lid-edge-right" />
+        <div className="laptop-pro-lid-edge lid-edge-top" />
+        <div className="laptop-pro-lid-edge lid-edge-bottom" />
+      </div>
+      <div className="laptop-pro-hinge"><i /><b /><i /></div>
+      <div className="laptop-pro-deck">
+        <div className="laptop-pro-palmrest">
+          <div className="laptop-pro-speaker speaker-left">{Array.from({ length: 48 }, (_, index) => <i key={index} />)}</div>
+          <div className="laptop-pro-keywell">
+            {keyboardRows.map((keys, rowIndex) => (
+              <div className={`pro-key-row row-${rowIndex + 1}`} key={rowIndex}>
+                {keys.map((key, keyIndex) => (
+                  <i
+                    className={`${key === '' ? 'key-space' : ''} key-${key.toLowerCase().replace(/[^a-z]/g, '') || 'symbol'}`}
+                    key={`${rowIndex}-${keyIndex}`}
+                  >
+                    <span>{key}</span>
+                  </i>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="laptop-pro-speaker speaker-right">{Array.from({ length: 48 }, (_, index) => <i key={index} />)}</div>
+          <div className="laptop-pro-trackpad"><i /></div>
+        </div>
+        <div className="laptop-pro-side side-left" />
+        <div className="laptop-pro-side side-right"><i /><i /></div>
+        <div className="laptop-pro-front"><i /></div>
+      </div>
+      <div className="laptop-pro-shadow" />
+    </div>
+  )
+}
+
+function ProjectArt({ project }: { project: typeof projects[number] }) {
   const [hovered, setHovered] = useState(false)
+  const [tilt, setTilt] = useState({ x: 0, y: 0 })
+  const isPhone = project.device === 'phone'
+
   return (
     <motion.div
-      className={`project-visual ${theme}`}
+      className={`project-visual device-showcase ${project.theme} device-${project.device}`}
       onHoverStart={() => setHovered(true)}
-      onHoverEnd={() => setHovered(false)}
-      whileHover={{ scale: 0.985 }}
+      onHoverEnd={() => { setHovered(false); setTilt({ x: 0, y: 0 }) }}
+      onMouseMove={(event) => {
+        const rect = event.currentTarget.getBoundingClientRect()
+        setTilt({
+          x: ((event.clientY - rect.top) / rect.height - 0.5) * -7,
+          y: ((event.clientX - rect.left) / rect.width - 0.5) * 9,
+        })
+      }}
       transition={{ duration: 0.45 }}
     >
       <div className="visual-grid" />
-      {theme === 'weather' && (
-        <>
-          <motion.div className="weather-orb" animate={{ rotate: hovered ? 160 : 0, scale: hovered ? 1.12 : 1 }} transition={{ duration: 1.4, ease: 'circOut' }} />
-          <div className="weather-data">42.3601 N<br />71.0589 W</div>
-          <div className="weather-temp">18°</div>
-          <motion.div className="scanline" animate={{ y: hovered ? 380 : -50 }} transition={{ duration: 1.8, repeat: Infinity, ease: 'linear' }} />
-        </>
-      )}
-      {theme === 'noir' && (
-        <>
-          <motion.div className="noir-column left" animate={{ y: hovered ? -24 : 0 }} />
-          <motion.div className="noir-column right" animate={{ y: hovered ? 24 : 0 }} />
-          <div className="noir-word">NOIR</div>
-          <div className="noir-cross">+</div>
-        </>
-      )}
-      {theme === 'memory' && (
-        <>
-          <motion.div className="memory-disc" animate={{ rotate: hovered ? 180 : 0 }} transition={{ duration: 1.8, ease: 'circOut' }}>
-            <div className="disc-core" />
-          </motion.div>
-          <div className="memory-copy">WHAT WE KEEP<br />KEEPS US</div>
-          <div className="memory-index">ARCHIVE_0432</div>
-        </>
-      )}
+      <div className="showcase-atmosphere"><i /><i /><i /></div>
+      <div className="showcase-label top-left"><span>CASE / {project.index}</span><b>{project.platform}</b></div>
+      <div className="showcase-label top-right"><span>DEVICE RENDER</span><b>INTERACTIVE / 60 FPS</b></div>
+      <motion.div
+        className="device-motion-stage"
+        initial={{ opacity: 0, y: isPhone ? 170 : 130, rotateX: isPhone ? -22 : 16, rotateY: isPhone ? -38 : 22, scale: 0.72 }}
+        whileInView={{ opacity: 1, y: 0, rotateX: 0, rotateY: 0, scale: 1 }}
+        viewport={{ once: true, amount: 0.34 }}
+        transition={{ type: 'spring', stiffness: 95, damping: 18, mass: 0.95 }}
+      >
+        <motion.div
+          className="device-tilt-stage"
+          animate={{ rotateX: tilt.x, rotateY: tilt.y, y: hovered ? -12 : 0 }}
+          transition={{ type: 'spring', stiffness: 120, damping: 18, mass: 0.8 }}
+        >
+          {isPhone ? <PhoneDevice theme={project.theme} active={hovered} /> : <LaptopDevice active={hovered} />}
+        </motion.div>
+      </motion.div>
+      <motion.div className="device-orbit orbit-one" animate={{ rotate: 360 }} transition={{ duration: 22, repeat: Infinity, ease: 'linear' }} />
+      <motion.div className="device-orbit orbit-two" animate={{ rotate: -360 }} transition={{ duration: 30, repeat: Infinity, ease: 'linear' }} />
+      <div className="showcase-specs">
+        <span><i /> PRODUCT DESIGN</span>
+        <span><i /> CREATIVE DEVELOPMENT</span>
+        <span><i /> MOTION SYSTEM</span>
+      </div>
       <motion.div className="view-project" animate={{ scale: hovered ? 1 : 0, rotate: hovered ? 0 : -45 }}>
         VIEW<br />CASE <ArrowUpRight size={15} />
       </motion.div>
-      <span className="visual-title">{title.replace('\n', ' / ')}</span>
+      <span className="visual-title">{project.title.replace('\n', ' / ')}</span>
     </motion.div>
   )
 }
@@ -5481,11 +5663,12 @@ function Project({ project }: { project: typeof projects[number] }) {
         <span>{project.type}</span>
         <span>{project.year}</span>
       </Reveal>
-      <Reveal><ProjectArt theme={project.theme} title={project.title} /></Reveal>
+      <Reveal><ProjectArt project={project} /></Reveal>
       <Reveal className="project-info">
         <h3>{project.title.split('\n').map((line) => <span key={line}>{line}</span>)}</h3>
         <div className="project-details">
           <p>{project.description}</p>
+          <div className="project-outcome"><span>PLATFORM <b>{project.platform}</b></span><span>OUTCOME <b>{project.result}</b></span></div>
           <div className="tag-row">{project.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
         </div>
       </Reveal>
