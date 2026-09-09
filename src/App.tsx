@@ -1,5 +1,3 @@
-import { Canvas, useFrame } from '@react-three/fiber'
-import { MeshDistortMaterial } from '@react-three/drei'
 import { AnimatePresence, motion, useMotionValue, useScroll, useSpring, useTransform } from 'framer-motion'
 import {
   Activity,
@@ -29,9 +27,9 @@ import {
   Workflow,
   Zap,
 } from 'lucide-react'
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import type { Group, Mesh } from 'three'
+import ScrollApple from './ScrollApple'
 
 const projects = [
   {
@@ -233,57 +231,45 @@ const recognition = [
 ]
 
 
-function Scene() {
-  const group = useRef<Group>(null)
-  const core = useRef<Mesh>(null)
-  const contour = useRef<Mesh>(null)
-
-  useFrame((state, delta) => {
-    if (!group.current || !core.current || !contour.current) return
-    const time = state.clock.elapsedTime
-    group.current.rotation.y += (state.pointer.x * 0.12 + Math.sin(time * 0.2) * 0.08 - group.current.rotation.y) * 0.025
-    group.current.rotation.x += (state.pointer.y * 0.08 + Math.sin(time * 0.28) * 0.025 - group.current.rotation.x) * 0.025
-    group.current.rotation.z = Math.cos(time * 0.2) * 0.012
-    group.current.position.y = Math.sin(time * 0.42) * 0.07
-    const breath = 2.02 + Math.sin(time * 0.55) * 0.018
-    core.current.scale.setScalar(breath)
-    contour.current.scale.setScalar(breath + 0.018)
-    contour.current.rotation.z -= delta * 0.01
-  })
-
+function HeroHands() {
   return (
-    <group ref={group}>
-      <mesh ref={core} scale={2.02}>
-        <sphereGeometry args={[1, 96, 64]} />
-        <MeshDistortMaterial
-          color="#11150d"
-          emissive="#101a08"
-          emissiveIntensity={0.28}
-          roughness={0.3}
-          metalness={0.74}
-          distort={0.14}
-          speed={0.7}
-        />
-      </mesh>
-      <mesh ref={contour} scale={2.038}>
-        <sphereGeometry args={[1, 36, 24]} />
-        <MeshDistortMaterial color="#b8df35" emissive="#557a09" emissiveIntensity={0.65} distort={0.14} speed={0.7} wireframe transparent opacity={0.24} depthWrite={false} />
-      </mesh>
-    </group>
-  )
-}
-
-function WebGLHero() {
-  return (
-    <div className="webgl-wrap" aria-hidden="true">
-      <Canvas camera={{ position: [0, 0, 6], fov: 42 }} dpr={[1, 1.6]} gl={{ antialias: true, alpha: true }}>
-        <ambientLight intensity={0.3} />
-        <directionalLight position={[4, 5, 4]} color="#f4f7ec" intensity={3.2} />
-        <pointLight position={[-4, -2, 3]} color="#8dbb27" intensity={8} />
-        <Suspense fallback={null}>
-          <Scene />
-        </Suspense>
-      </Canvas>
+    <div className="hero-hands" aria-hidden="true">
+      <svg viewBox="0 0 1000 520" role="presentation">
+        <defs>
+          <linearGradient id="hand-silver" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#e8e3d6" />
+            <stop offset=".35" stopColor="#9d9b93" />
+            <stop offset=".7" stopColor="#565955" />
+            <stop offset="1" stopColor="#c7c5bc" />
+          </linearGradient>
+          <filter id="hand-depth" x="-20%" y="-30%" width="140%" height="160%">
+            <feDropShadow dx="0" dy="12" stdDeviation="13" floodColor="#000" floodOpacity=".7" />
+          </filter>
+        </defs>
+        <motion.g
+          className="hero-hand hero-hand-left"
+          initial={{ x: -90, opacity: 0 }}
+          animate={{ x: [0, 7, 0], opacity: 1 }}
+          transition={{ x: { duration: 7, repeat: Infinity, ease: 'easeInOut' }, opacity: { delay: 1.35, duration: 1 } }}
+          filter="url(#hand-depth)"
+        >
+          <path className="hand-fill" d="M-65 350C52 320 133 287 219 247c59-27 91-59 137-83 37-20 74-26 98-12 16 10 14 25-3 35-26 15-61 24-87 42 49-17 105-33 143-23 19 5 28 19 20 31-9 14-39 16-70 18 31 3 53 11 54 25 1 18-30 24-71 19-32-4-61-11-91-3-44 12-86 46-125 75-50 37-102 68-178 91L-65 350Z" />
+          <path className="hand-outline" d="M-65 350C52 320 133 287 219 247c59-27 91-59 137-83 37-20 74-26 98-12 16 10 14 25-3 35-26 15-61 24-87 42 49-17 105-33 143-23 19 5 28 19 20 31-9 14-39 16-70 18 31 3 53 11 54 25 1 18-30 24-71 19-32-4-61-11-91-3-44 12-86 46-125 75-50 37-102 68-178 91" />
+          <path className="hand-detail" d="M220 247c44 8 88 2 144-18M260 276c51-6 112-20 197-21M302 307c45-16 86-17 138-8M176 326c62-3 108-20 157-54M350 198c30-11 64-16 93-12" />
+        </motion.g>
+        <motion.g
+          className="hero-hand hero-hand-right"
+          initial={{ x: 90, opacity: 0 }}
+          animate={{ x: [0, -7, 0], opacity: 1 }}
+          transition={{ x: { duration: 7, repeat: Infinity, ease: 'easeInOut' }, opacity: { delay: 1.5, duration: 1 } }}
+          filter="url(#hand-depth)"
+        >
+          <path className="hand-fill" d="M1060 85C936 109 846 148 779 190c-38 24-70 52-107 71-33 16-61 20-90 15l-82-14c-21-4-42 2-47 15-6 15 15 27 42 31l74 11c-42 9-91 22-121 43-17 12-17 28-1 36 20 10 52-3 80-13-25 17-35 34-23 46 14 14 44 0 76-22 40-27 70-57 112-71 54-18 110-11 163-26 63-17 128-53 205-99l80-128Z" />
+          <path className="hand-outline" d="M1060 85C936 109 846 148 779 190c-38 24-70 52-107 71-33 16-61 20-90 15l-82-14c-21-4-42 2-47 15-6 15 15 27 42 31l74 11c-42 9-91 22-121 43-17 12-17 28-1 36 20 10 52-3 80-13-25 17-35 34-23 46 14 14 44 0 76-22 40-27 70-57 112-71 54-18 110-11 163-26 63-17 128-53 205-99" />
+          <path className="hand-detail" d="M779 190c-16 44-46 91-87 148M735 215c-44 34-91 56-166 104M681 253c-57 27-104 40-154 66M829 163c-29 45-51 77-87 108M862 290c-58-15-113-13-170 48" />
+        </motion.g>
+        <motion.circle className="finger-spark" cx="546" cy="286" r="3" animate={{ r: [2, 6, 2], opacity: [.4, 1, .4] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }} />
+      </svg>
     </div>
   )
 }
@@ -808,10 +794,10 @@ function TechnologySection() {
   const [activeTech, setActiveTech] = useState('THREE.JS')
   const activeIndex = technologies.indexOf(activeTech)
   const groups = [
-    { name: 'INTERFACE', items: technologies.slice(0, 4) },
-    { name: 'MOTION', items: technologies.slice(4, 8) },
-    { name: 'SYSTEMS', items: technologies.slice(8, 12) },
-    { name: 'EXPERIMENT', items: technologies.slice(12, 16) },
+    { name: 'INTERFACE', code: 'UI', items: technologies.slice(0, 4) },
+    { name: 'MOTION', code: 'MX', items: technologies.slice(4, 8) },
+    { name: 'SYSTEMS', code: 'SY', items: technologies.slice(8, 12) },
+    { name: 'EXPERIMENT', code: 'EX', items: technologies.slice(12, 16) },
   ]
 
   return (
@@ -848,15 +834,31 @@ function TechnologySection() {
           <motion.div className="tech-light" animate={{ x: ['-20%', '25%', '-20%'], y: ['-5%', '10%', '-5%'] }} transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }} />
         </div>
         <div className="tech-list">
+          <div className="tech-list-head">
+            <span>SKILL INDEX / 16</span>
+            <span>HOVER TO INSPECT</span>
+          </div>
           {groups.map((group, groupIndex) => (
             <motion.div className="tech-group" key={group.name} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: groupIndex * .08 }}>
-              <span>{String(groupIndex + 1).padStart(2, '0')} / {group.name}</span>
-              <div>
-                {group.items.map((technology) => (
-                  <button key={technology} className={activeTech === technology ? 'is-active' : ''} onMouseEnter={() => setActiveTech(technology)} onFocus={() => setActiveTech(technology)} onClick={() => setActiveTech(technology)}>
-                    <span>{technology}</span><ArrowUpRight />
+              <div className="tech-group-label">
+                <span>{String(groupIndex + 1).padStart(2, '0')}</span>
+                <strong>{group.name}</strong>
+                <i>{group.code}</i>
+              </div>
+              <div className="tech-skill-grid">
+                {group.items.map((technology) => {
+                  const technologyIndex = technologies.indexOf(technology)
+                  const isActive = activeTech === technology
+                  return (
+                  <button key={technology} className={isActive ? 'is-active' : ''} onMouseEnter={() => setActiveTech(technology)} onFocus={() => setActiveTech(technology)} onClick={() => setActiveTech(technology)} aria-pressed={isActive}>
+                    <motion.span className="tech-skill-fill" initial={false} animate={{ scaleX: isActive ? 1 : 0 }} transition={{ duration: .5, ease: [0.22, 1, 0.36, 1] }} />
+                    <span className="tech-skill-number">{String(technologyIndex + 1).padStart(2, '0')}</span>
+                    <span className="tech-skill-name">{technology}</span>
+                    <span className="tech-skill-status"><i /> {isActive ? 'IN FOCUS' : 'LEARNED'}</span>
+                    <ArrowUpRight />
                   </button>
-                ))}
+                  )
+                })}
               </div>
             </motion.div>
           ))}
@@ -1005,7 +1007,7 @@ function PhoneDevice({ theme, active }: { theme: string; active: boolean }) {
         <div className="phone-antenna antenna-top" />
         <div className="phone-antenna antenna-bottom" />
         <div className="phone-glass">
-          <div className="phone-screen"><PhoneScreen theme={theme} active={active} /><div className="screen-reflection" /></div>
+          <div className="phone-screen"><PhoneScreen theme={theme} active={active} /></div>
           <div className="phone-island"><div className="phone-speaker" /><div className="phone-camera"><i /></div></div>
           <div className="phone-home-indicator" />
         </div>
@@ -1023,7 +1025,7 @@ function LaptopDevice({ active }: { active: boolean }) {
         <div className="laptop-pro-shell" />
         <div className="laptop-pro-bezel">
           <div className="laptop-pro-camera"><i /></div>
-          <div className="laptop-pro-screen"><LaptopScreen active={active} /><div className="screen-reflection" /></div>
+          <div className="laptop-pro-screen"><LaptopScreen active={active} /></div>
         </div>
         <div className="laptop-pro-lid-edge lid-edge-left" />
         <div className="laptop-pro-lid-edge lid-edge-right" />
@@ -1107,7 +1109,7 @@ function Project({ project, position }: { project: typeof projects[number], posi
         <span>{project.type}</span>
         <span>{project.year}</span>
       </Reveal>
-      <Reveal><ProjectArt project={project} /></Reveal>
+      <Reveal className="project-art-wrap"><ProjectArt project={project} /></Reveal>
       <Reveal className="project-info">
         <h3>{project.title.split('\n').map((line) => <span key={line}>{line}</span>)}</h3>
         <div className="project-details">
@@ -1157,11 +1159,12 @@ function App() {
       <Cursor />
       <PointerGlow />
       <ScrollCoordinates />
+      <ScrollApple />
       <motion.div className="progress" style={{ scaleX: progress }} />
       <Header />
       <main id="top">
         <section className="hero">
-          <WebGLHero />
+          <HeroHands />
           <div className="hero-coordinate">40.7128° N<br />74.0060° W</div>
           <motion.div className="hero-copy" style={{ y: heroY, opacity: heroOpacity }}>
             <div className="eyebrow"><span>CREATIVE DEVELOPER</span><span>BASED IN NEW YORK</span></div>
