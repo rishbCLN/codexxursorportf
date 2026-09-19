@@ -1,8 +1,7 @@
-import { AnimatePresence, motion, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform } from 'framer-motion'
+import { AnimatePresence, motion, useMotionValue, useMotionValueEvent, useMotionTemplate, useReducedMotion, useScroll, useSpring, useTransform } from 'framer-motion'
 import type { MotionValue } from 'framer-motion'
 import gsap from 'gsap'
 import {
-  ArrowDown,
   ArrowUpRight,
   Asterisk,
   AudioLines,
@@ -25,7 +24,7 @@ import {
   Wind,
   Zap,
 } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import Lenis from 'lenis'
 import ScrollApple from './ScrollApple'
@@ -33,6 +32,8 @@ import heroHandLeftUrl from './assets/hero-hand-left.png'
 import heroHandRightUrl from './assets/hero-hand-right.png'
 import cloudsUrl from './assets/clouds.png'
 import tojiUrl from './assets/toji.png'
+
+const SonicRing = lazy(() => import('./SonicRing'))
 
 const projects = [
   {
@@ -296,14 +297,13 @@ function HeroHandsScene({ progress }: { progress: MotionValue<number> }) {
     return () => window.removeEventListener('pointermove', move)
   }, [px, py])
 
-  // Driven by the pinned hero's scroll progress: parted at the top, closing as you scroll.
-  const leftX = useTransform(progress, [0, 0.46], ['-24%', '0%'])
-  const leftY = useTransform(progress, [0, 0.46], ['20%', '0%'])
-  const rightX = useTransform(progress, [0, 0.46], ['24%', '0%'])
-  const rightY = useTransform(progress, [0, 0.46], ['-20%', '0%'])
+  // Driven by the pinned hero's scroll progress. They stop with a deliberate gap
+  // between the index fingers so the 3D sonic ring fits in the opening.
+  const leftX = useTransform(progress, [0, 0.46], ['-24%', '-5.4%'])
+  const leftY = useTransform(progress, [0, 0.46], ['20%', '4.6%'])
+  const rightX = useTransform(progress, [0, 0.46], ['24%', '5.4%'])
+  const rightY = useTransform(progress, [0, 0.46], ['-20%', '-4.6%'])
   const glowOpacity = useTransform(progress, [0, 0.46], [0.28, 0.9])
-  const sparkOpacity = useTransform(progress, [0.36, 0.46], [0, 1])
-  const sparkScale = useTransform(progress, [0.36, 0.5], [0.4, 1])
 
   return (
     <div className="hero-canvas" aria-hidden="true">
@@ -319,12 +319,6 @@ function HeroHandsScene({ progress }: { progress: MotionValue<number> }) {
         {/* Right / upper hand — mirrors it so the fingertips come close but never touch */}
         <motion.div className="hero-hand hand-right" style={{ x: rightX, y: rightY }}>
           <img className="hero-hand-img" src={heroHandRightUrl} alt="" draggable={false} />
-        </motion.div>
-
-        {/* A quiet ember gathers in the gap as the fingertips close */}
-        <motion.div className="hero-spark" style={{ opacity: sparkOpacity, scale: sparkScale }}>
-          <span className="spark-glow" />
-          <span className="spark-core" />
         </motion.div>
       </motion.div>
     </div>
@@ -383,20 +377,20 @@ function Loader() {
       const tl = gsap.timeline({ onComplete: () => window.setTimeout(() => setVisible(false), 150) })
 
       // Progress hairline fills across the whole intro.
-      tl.to(barRef.current, { scaleX: 1, ease: 'none', duration: 4 }, 0)
-      // Straight fall, continuously accelerating (real gravity — power2.in).
-      tl.to(tojiRef.current, { yPercent: 450, rotation: 2, ease: 'power2.in', duration: 3.3 }, 0)
+      tl.to(barRef.current, { scaleX: 1, ease: 'none', duration: 2.9 }, 0)
+      // Fast, straight, continuously accelerating fall (real gravity — power2.in).
+      tl.to(tojiRef.current, { yPercent: 450, rotation: 2, ease: 'power2.in', duration: 2.2 }, 0)
       // Motion blur only in the last stretch of the fall (peak velocity).
-      tl.to(tojiRef.current, { filter: `blur(12px) ${shadow}`, ease: 'power2.in', duration: 1.3 }, 2)
+      tl.to(tojiRef.current, { filter: `blur(12px) ${shadow}`, ease: 'power2.in', duration: 0.95 }, 1.3)
       // Anime speed lines during the fast stretch.
-      tl.to(speedRef.current, { opacity: 0.55, duration: 0.4 }, 2)
-      tl.to(speedRef.current, { opacity: 0, duration: 0.5 }, 3)
-      // No zoom during the fall — hard, accelerating punch-in as he nears the clouds.
-      tl.to(worldRef.current, { scale: 2.9, ease: 'power3.in', duration: 1.2 }, 2.4)
+      tl.to(speedRef.current, { opacity: 0.55, duration: 0.35 }, 1.3)
+      tl.to(speedRef.current, { opacity: 0, duration: 0.4 }, 2.1)
+      // A gentle push-in as he nears the clouds (half the previous zoom).
+      tl.to(worldRef.current, { scale: 1.9, ease: 'power3.in', duration: 0.85 }, 1.65)
       // He vanishes into the clouds.
-      tl.to(tojiRef.current, { opacity: 0, duration: 0.4 }, 3.1)
+      tl.to(tojiRef.current, { opacity: 0, duration: 0.35 }, 2.1)
       // Brief darkness, then the hero emerges.
-      tl.to(blackoutRef.current, { opacity: 1, duration: 0.5 }, 3.5)
+      tl.to(blackoutRef.current, { opacity: 1, duration: 0.45 }, 2.45)
     }, rootRef)
 
     return () => ctx.revert()
@@ -1465,13 +1459,21 @@ function App() {
   const { scrollYProgress } = useScroll()
   const progress = useSpring(scrollYProgress, { stiffness: 100, damping: 25, restDelta: 0.001 })
 
-  // The hero is pinned; scroll scrubs the hands together, then wipes horizontally to the next panel.
+  // The hero is pinned; scroll scrubs the hands together, then we zoom through the ring to black.
   const heroRef = useRef<HTMLElement>(null)
   const { scrollYProgress: heroRaw } = useScroll({ target: heroRef, offset: ['start start', 'end end'] })
   const heroProgress = useSpring(heroRaw, { stiffness: 120, damping: 30, restDelta: 0.0002 })
-  const panelX = useTransform(heroProgress, [0.52, 0.96], ['0%', '-100%'])
-  const panelScale = useTransform(heroProgress, [0.52, 0.96], [1, 0.92])
-  const chapterX = useTransform(heroProgress, [0.52, 0.96], ['100%', '0%'])
+  // Ring stops ~0.60, we dive into the hole 0.60->0.80, then warp. The panel
+  // (hero text + hands) scales up into the dive and fades out before the warp
+  // so only the ring/stars remain for the journey.
+  const panelScale = useTransform(heroProgress, [0.5, 0.8], [1, 4.6])
+  const panelOpacity = useTransform(heroProgress, [0.6, 0.74], [1, 0])
+
+  // First-person "emerge from the hole": a dark tunnel vignette whose bright
+  // centre hole grows to fill the view as we pop out into the next section.
+  const emergeHole = useTransform(heroProgress, [0.9, 1], ['10%', '150%'])
+  const emergeOpacity = useTransform(heroProgress, [0.84, 0.9, 1], [0, 1, 1])
+  const emergeBg = useMotionTemplate`radial-gradient(circle at 50% 47%, transparent ${emergeHole}, #050505 calc(${emergeHole} + 10%))`
 
   // Studio-grade eased/inertial scrolling. Everything scroll-driven (hero scrub,
   // ScrollApple, progress) rides on top of Lenis, so nothing feels linear.
@@ -1523,7 +1525,7 @@ function App() {
       <main id="top">
         <section className="hero" ref={heroRef}>
           <div className="hero-stage">
-            <motion.div className="hero-panel" style={{ x: panelX, scale: panelScale }}>
+            <motion.div className="hero-panel" style={{ scale: panelScale, opacity: panelOpacity }}>
               <HeroHandsScene progress={heroProgress} />
 
               <div className="hero-top">
@@ -1570,20 +1572,15 @@ function App() {
               </div>
             </motion.div>
 
-            {/* Slides in horizontally as the hero wipes away */}
-            <motion.div className="hero-chapter" style={{ x: chapterX }}>
-              <div className="chapter-head">
-                <span>The practice</span>
-                <span>New York, since 2014</span>
-              </div>
-              <div className="chapter-metrics">
-                <div><strong>10<sup>+</sup></strong><span>Years in the browser</span></div>
-                <div><strong>47</strong><span>Projects shipped</span></div>
-                <div><strong>19</strong><span>Global awards</span></div>
-                <div><strong>60</strong><span>Frames per second</span></div>
-              </div>
-              <div className="chapter-foot"><span>Selected work follows</span><ArrowDown /></div>
-            </motion.div>
+            <Suspense fallback={null}>
+              <SonicRing progress={heroProgress} />
+            </Suspense>
+
+            <motion.div
+              className="hero-emerge"
+              aria-hidden="true"
+              style={{ background: emergeBg, opacity: emergeOpacity }}
+            />
           </div>
         </section>
 
