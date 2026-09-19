@@ -1349,6 +1349,11 @@ function LaptopDevice({ project, active }: { project: typeof projects[number]; a
         <div className="laptop-pro-lid-edge lid-edge-top" />
         <div className="laptop-pro-lid-edge lid-edge-bottom" />
       </div>
+      <div className="laptop-pro-base" aria-hidden="true">
+        <span className="laptop-pro-hinge" />
+        <span className="laptop-pro-deck" />
+        <span className="laptop-pro-notch" />
+      </div>
       <div className="laptop-pro-shadow" />
     </div>
   )
