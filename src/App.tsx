@@ -1480,7 +1480,7 @@ function App() {
   // after the exact same scroll distance, handing the huge remainder to the
   // dive + warp. Hand feel is byte-for-byte identical; the warp just breathes.
   //   HERO_VH / HERO_VH_OLD must match .hero height in styles.css.
-  const HERO_VH = 760 // <- keep in sync with .hero (desktop) in styles.css
+  const HERO_VH = 920 // <- keep in sync with .hero (desktop) in styles.css
   const HERO_VH_OLD = 420 // the height the hand timing was tuned against
   const VIEW_VH = 100
   // Scroll distance (in svh) the hands used to travel — the feel we preserve.
@@ -1501,7 +1501,7 @@ function App() {
   // a solid --ink sheet fades in and holds, so we land on a pure black canvas
   // with nothing flying on it. Because it's the exact manifesto colour, it reads
   // as one continuous surface straight into the 01 / MANIFESTO section.
-  const emergeOpacity = useTransform(heroProgress, [0.95, 0.975, 1], [0, 1, 1])
+  const emergeOpacity = useTransform(heroProgress, [0.965, 0.985, 1], [0, 1, 1])
 
   // Studio-grade eased/inertial scrolling. Everything scroll-driven (hero scrub,
   // ScrollApple, progress) rides on top of Lenis, so nothing feels linear.

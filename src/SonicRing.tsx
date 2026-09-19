@@ -156,7 +156,7 @@ function Warp({ progress }: { progress: MotionValue<number> }) {
   // Stars stream in as the warp opens and keep flying through a long corridor
   // (the exit ring only shows up at ~0.86), then fade OUT right at the punch-
   // through so NOTHING is left flying once we hit the black.
-  const active = useTransform(progress, [STOP + 0.12, STOP + 0.18, 0.94, 0.975], [0, 1, 1, 0], { clamp: true })
+  const active = useTransform(progress, [STOP + 0.12, STOP + 0.18, 0.96, 0.985], [0, 1, 1, 0], { clamp: true })
   // Smoothed absolute scroll velocity -> trail length.
   const velocity = useVelocity(progress)
   const smoothVel = useSpring(velocity, { stiffness: 220, damping: 40 })

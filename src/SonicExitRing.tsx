@@ -29,11 +29,14 @@ const ease = cubicBezier(0.4, 0, 0.2, 1)
 
 // The gate appears only AFTER a long stretch of pure warp travel (stars alone),
 // so there's a real sense of distance flown between the entry ring and this one.
-const EXIT_BORN = 0.86
-// End of the approach: by here the ring is big, sharp and right in our face,
-// then it keeps coming to engulf the camera (-> pitch black) by ENGULF.
-const CLEAR = 0.95 // magnified + fully in focus, tilt relaxed to face-on
-const ENGULF = 0.975 // ring has passed the camera; we're through into black
+const EXIT_BORN = 0.89
+// The blur -> clarity resolves FAST and EARLY (about twice as quick as before):
+// the gate snaps into focus and squares up not long after it appears.
+const SHARP = 0.935
+// The ring keeps rushing in (already crisp) until it's big in our face, then
+// engulfs the camera into pitch black.
+const CLEAR = 0.965 // magnified + in our face
+const ENGULF = 0.985 // ring has passed the camera; we're through into black
 
 function ExitRing({ progress }: { progress: MotionValue<number> }) {
   const group = useRef<THREE.Group>(null)
@@ -48,8 +51,8 @@ function ExitRing({ progress }: { progress: MotionValue<number> }) {
   // Fades up quickly so it's a real ring you can see coming, then gone once it
   // has engulfed us (so nothing lingers on the black).
   const fade = useTransform(progress, [EXIT_BORN, EXIT_BORN + 0.03, CLEAR, ENGULF], [0, 0.8, 1, 0], { clamp: true })
-  // 3D tilt while it's far away, easing to face-on as we pass through it.
-  const tilt = useTransform(progress, [EXIT_BORN, CLEAR], [0.42, 0.05], { clamp: true, ease })
+  // 3D tilt while it's far away, squaring up to face-on as it snaps into focus.
+  const tilt = useTransform(progress, [EXIT_BORN, SHARP], [0.42, 0.05], { clamp: true, ease })
   // The void snaps fully opaque the instant the ring is born (so it always
   // fully blocks the stars), and is hidden before that so no black dot shows
   // over the hero.
@@ -101,10 +104,10 @@ function ExitRing({ progress }: { progress: MotionValue<number> }) {
 }
 
 export default function SonicExitRing({ progress }: { progress: MotionValue<number> }) {
-  // Focus-pull that belongs to the EXIT RING ALONE (its own layer): soft while
-  // it's a distant gate, fully sharp by the time it is magnified in our face
-  // (CLEAR). Coupled to the approach: closer == bigger == clearer.
-  const blur = useTransform(progress, [EXIT_BORN, CLEAR], [15, 0], { clamp: true })
+  // Focus-pull that belongs to the EXIT RING ALONE (its own layer): soft when it
+  // first appears, then resolving to fully sharp FAST + EARLY by SHARP (roughly
+  // twice as quick as it used to take). It then keeps rushing in already crisp.
+  const blur = useTransform(progress, [EXIT_BORN, SHARP], [15, 0], { clamp: true })
   const filter = useMotionTemplate`blur(${blur}px)`
 
   return (
