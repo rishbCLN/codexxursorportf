@@ -24,7 +24,7 @@ import {
   Wind,
   Zap,
 } from 'lucide-react'
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import Lenis from 'lenis'
 import ScrollApple from './ScrollApple'
@@ -111,13 +111,15 @@ const processPhases = [
   },
 ]
 
-const brainFrameModules = import.meta.glob<string>('./assets/brain-frames/*.webp', {
+// Layered 3D-brain plates (transparent PNGs, all centered on identical canvases).
+// Sorted ascending: index 0 = deepest plate (rendered back), last = frontmost shell.
+const brainLayerModules = import.meta.glob<string>('./assets/brain-layers/*.png', {
   eager: true,
   query: '?url',
   import: 'default',
 })
 
-const brainFrameUrls = Object.entries(brainFrameModules)
+const brainLayerUrls = Object.entries(brainLayerModules)
   .sort(([firstPath], [secondPath]) => firstPath.localeCompare(secondPath, undefined, { numeric: true }))
   .map(([, url]) => url)
 
@@ -566,13 +568,47 @@ function SoundControl() {
   )
 }
 
+function BrainLayer({ url, depth, count, progress, reducedMotion }: {
+  url: string
+  depth: number
+  count: number
+  progress: MotionValue<number>
+  reducedMotion: boolean
+}) {
+  // rel: -1 for the deepest plate, +1 for the frontmost shell, 0 at the core
+  const mid = (count - 1) / 2
+  const rel = mid > 0 ? (depth - mid) / mid : 0
+  const isShell = depth === count - 1
+
+  // Dissect ramps up early, holds fully separated across the middle, then rejoins
+  const explode = useTransform(progress, [0, 0.32, 0.68, 1], [0, 1, 1, 0])
+
+  const y = useTransform(explode, [0, 1], ['0%', `${rel * -48}%`])
+  const x = useTransform(explode, [0, 1], ['0%', `${rel * 10}%`])
+  const scale = useTransform(explode, [0, 1], [1, 1 + rel * 0.07])
+  const rotate = useTransform(explode, [0, 1], [0, rel * -5])
+  const opacity = useTransform(explode, [0, 1], [isShell ? 1 : 0.68, 1])
+  const blurPx = useTransform(explode, [0, 1], [isShell ? 0 : 1.6, 0])
+  const filter = useTransform(blurPx, (value) => `blur(${value}px)`)
+
+  if (reducedMotion) {
+    return <img className="brain-layer" src={url} alt="" aria-hidden="true" style={{ zIndex: depth }} draggable={false} />
+  }
+
+  return (
+    <motion.img
+      className="brain-layer"
+      src={url}
+      alt=""
+      aria-hidden="true"
+      draggable={false}
+      style={{ x, y, scale, rotate, opacity, filter, zIndex: depth }}
+    />
+  )
+}
+
 function ProcessSection() {
   const sectionRef = useRef<HTMLElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const loadedFramesRef = useRef<boolean[]>(brainFrameUrls.map(() => false))
-  const preloadedImagesRef = useRef<HTMLImageElement[]>([])
-  const requestedFrameIndexRef = useRef(0)
-  const currentFrameIndexRef = useRef(0)
   const activePhaseRef = useRef(0)
 
   const reducedMotion = useReducedMotion()
@@ -591,179 +627,48 @@ function ProcessSection() {
     restDelta: 0.0001,
   })
 
-  const mediaScale = useTransform(smoothProgress, [0, 0.42, 1], [1.075, 1, 1.045])
-  const mediaY = useTransform(smoothProgress, [0, 1], ['2.5%', '-2.5%'])
+  // The whole plate stack breathes and tilts through the dissection
+  const stageScale = useTransform(smoothProgress, [0, 0.5, 1], [0.94, 1.05, 0.94])
+  const stageRotateX = useTransform(smoothProgress, [0, 0.5, 1], [0, 15, 0])
+  const stageRotateZ = useTransform(smoothProgress, [0, 0.5, 1], [0, -4, 0])
   const copyY = useTransform(smoothProgress, [0, 0.5, 1], [24, 0, -24])
   const copyOpacity = useTransform(smoothProgress, [0, 0.045, 0.94, 1], [0.35, 1, 1, 0.35])
 
-  const lastFrameIndex = brainFrameUrls.length - 1
-  const reducedFrameIndex = Math.round(lastFrameIndex * 0.42)
-
-  // Pure Framer Motion transform mapping scroll progression directly to frame index
-  const frameProgress = useTransform(smoothProgress, [0, 1], [0, lastFrameIndex], { clamp: true })
-
-  const drawFrame = useCallback((requestedIndex: number) => {
-    const canvas = canvasRef.current
-    if (!canvas || lastFrameIndex < 0) return
-
-    const targetIndex = Math.min(Math.max(requestedIndex, 0), lastFrameIndex)
-    requestedFrameIndexRef.current = targetIndex
-    let displayIndex = targetIndex
-
-    if (!loadedFramesRef.current[displayIndex]) {
-      for (let distance = 1; distance <= lastFrameIndex; distance += 1) {
-        const before = targetIndex - distance
-        const after = targetIndex + distance
-        if (before >= 0 && loadedFramesRef.current[before]) {
-          displayIndex = before
-          break
-        }
-        if (after <= lastFrameIndex && loadedFramesRef.current[after]) {
-          displayIndex = after
-          break
-        }
-      }
-    }
-
-    if (!loadedFramesRef.current[displayIndex]) return
-
-    const img = preloadedImagesRef.current[displayIndex]
-    if (!img || !img.complete || img.naturalWidth === 0) return
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    const canvasWidth = canvas.clientWidth
-    const canvasHeight = canvas.clientHeight
-    if (canvasWidth === 0 || canvasHeight === 0) return
-
-    const dpr = Math.min(window.devicePixelRatio || 1, 2)
-    const displayWidth = Math.round(canvasWidth * dpr)
-    const displayHeight = Math.round(canvasHeight * dpr)
-
-    if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
-      canvas.width = displayWidth
-      canvas.height = displayHeight
-    }
-
-    const cWidth = canvas.width
-    const cHeight = canvas.height
-    const imgRatio = img.naturalWidth / img.naturalHeight
-    const canvasRatio = cWidth / cHeight
-
-    let drawW = cWidth
-    let drawH = cHeight
-    let drawX = 0
-    let drawY = 0
-
-    if (canvasRatio > imgRatio) {
-      drawH = cWidth / imgRatio
-      drawY = (cHeight - drawH) * 0.5
-    } else {
-      drawW = cHeight * imgRatio
-      drawX = (cWidth - drawW) * 0.58
-    }
-
-    ctx.clearRect(0, 0, cWidth, cHeight)
-    ctx.drawImage(img, drawX, drawY, drawW, drawH)
-    currentFrameIndexRef.current = displayIndex
-
+  // Scroll progress drives which process phase is shown
+  useMotionValueEvent(smoothProgress, 'change', (latest) => {
+    if (reducedMotion) return
     const nextPhase = Math.min(
-      Math.floor((displayIndex / Math.max(lastFrameIndex, 1)) * processPhases.length),
+      Math.floor(latest * processPhases.length),
       processPhases.length - 1,
     )
     if (nextPhase !== activePhaseRef.current) {
       activePhaseRef.current = nextPhase
       setActivePhase(nextPhase)
     }
-  }, [lastFrameIndex])
-
-  // Framer Motion event listener updating canvas smoothly as user scrolls
-  useMotionValueEvent(frameProgress, 'change', (latest) => {
-    if (reducedMotion) return
-    drawFrame(Math.round(latest))
   })
-
-  // Frame assets preloader
-  useEffect(() => {
-    let cancelled = false
-    const images: HTMLImageElement[] = []
-    preloadedImagesRef.current = images
-    loadedFramesRef.current = brainFrameUrls.map(() => false)
-
-    const preloadFrame = (url: string, index: number) => new Promise<void>((resolve) => {
-      const image = new Image()
-      images[index] = image
-      image.decoding = 'async'
-      image.fetchPriority = index === 0 || index === lastFrameIndex ? 'high' : 'low'
-      image.onload = () => {
-        void image.decode().catch(() => undefined).then(() => {
-          if (!cancelled) {
-            loadedFramesRef.current[index] = true
-            if (index === requestedFrameIndexRef.current || !loadedFramesRef.current[requestedFrameIndexRef.current]) {
-              drawFrame(requestedFrameIndexRef.current)
-            }
-          }
-          resolve()
-        })
-      }
-      image.onerror = () => resolve()
-      image.src = url
-    })
-
-    const preloadRemainingFrames = () => {
-      if (cancelled) return
-      void Promise.allSettled(
-        brainFrameUrls.slice(1).map((url, index) => preloadFrame(url, index + 1)),
-      )
-    }
-
-    void preloadFrame(brainFrameUrls[0], 0).then(preloadRemainingFrames, preloadRemainingFrames)
-
-    return () => {
-      cancelled = true
-      images.forEach((image) => {
-        image.onload = null
-        image.onerror = null
-      })
-      preloadedImagesRef.current = []
-    }
-  }, [drawFrame, lastFrameIndex])
-
-  // Initial draw & response to reduced motion
-  useEffect(() => {
-    const frameIndex = reducedMotion ? reducedFrameIndex : Math.round(frameProgress.get())
-    requestedFrameIndexRef.current = frameIndex
-    drawFrame(frameIndex)
-  }, [drawFrame, frameProgress, reducedFrameIndex, reducedMotion])
-
-  // Handle dynamic canvas resizing
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const resizeObserver = new ResizeObserver(() => {
-      drawFrame(requestedFrameIndexRef.current)
-    })
-    resizeObserver.observe(canvas)
-    return () => resizeObserver.disconnect()
-  }, [drawFrame])
 
   const displayedPhase = reducedMotion ? 1 : activePhase
   const phase = processPhases[displayedPhase]
+  const layerCount = brainLayerUrls.length
 
   return (
     <section className="process-section" id="process" ref={sectionRef}>
       <div className="process-stage">
         <motion.div
-          className="process-media"
-          style={reducedMotion ? undefined : { scale: mediaScale, y: mediaY }}
+          className="brain-layers"
+          style={reducedMotion ? undefined : { scale: stageScale, rotateX: stageRotateX, rotateZ: stageRotateZ }}
           aria-hidden="true"
         >
-          <canvas
-            ref={canvasRef}
-            aria-hidden="true"
-          />
+          {brainLayerUrls.map((url, index) => (
+            <BrainLayer
+              key={url}
+              url={url}
+              depth={index}
+              count={layerCount}
+              progress={smoothProgress}
+              reducedMotion={!!reducedMotion}
+            />
+          ))}
         </motion.div>
         <div className="process-identifier section-tag">
           <span>04</span> / OPERATING SYSTEM

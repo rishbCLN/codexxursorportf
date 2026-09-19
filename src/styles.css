@@ -389,10 +389,11 @@ footer p { margin: 0; font: 500 9px/1.6 DM Mono; letter-spacing: .08em; }
 .capability-modules b { align-self: end; text-align: right; font: 500 8px DM Mono; color: var(--acid-deep); }
 
 .process-section { position: relative; height: 400svh; min-height: 400svh; background: #050505; color: var(--paper); }
-.process-stage { position: sticky; top: 0; width: 100%; height: 100svh; overflow: hidden; isolation: isolate; background: #050505; }
+.process-stage { position: sticky; top: 0; width: 100%; height: 100svh; overflow: hidden; isolation: isolate; background: #050505; perspective: 1500px; }
 .process-stage::before { content: ''; position: absolute; z-index: 2; inset: 0; pointer-events: none; background: linear-gradient(90deg,rgba(5,5,5,.75) 0%,rgba(5,5,5,.42) 24%,transparent 52%),linear-gradient(180deg,rgba(5,5,5,.28) 0%,transparent 18% 78%,rgba(5,5,5,.45) 100%); }
-.process-media { position: absolute; z-index: 0; inset: -3%; transform-origin: 63% 50%; will-change: transform; }
-.process-media canvas, .process-media img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: 58% 50%; filter: contrast(1.04) brightness(1.02); }
+.brain-layers { position: absolute; z-index: 0; inset: 0; display: grid; place-items: center; transform-style: preserve-3d; transform-origin: 50% 50%; will-change: transform; }
+.brain-layers::after { content: ''; position: absolute; z-index: 0; width: min(70vh, 62vw); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(50% 50% at 50% 50%, rgba(120,180,255,.16), rgba(120,180,255,0) 70%); filter: blur(36px); pointer-events: none; }
+.brain-layer { position: absolute; grid-area: 1 / 1; width: min(66vh, 58vw); max-width: 760px; height: auto; display: block; object-fit: contain; will-change: transform, opacity, filter; pointer-events: none; user-select: none; }
 .process-identifier { position: absolute; z-index: 5; top: 28px; left: 3vw; color: rgba(242,241,235,.62); }
 .process-copy { position: absolute; z-index: 5; left: 3vw; bottom: clamp(38px,7vh,84px); width: min(36vw,500px); will-change: transform,opacity; pointer-events: none; }
 .process-copy article { pointer-events: auto; }
@@ -621,7 +622,7 @@ footer p { margin: 0; font: 500 9px/1.6 DM Mono; letter-spacing: .08em; }
   .metrics-strip div:nth-child(2) { border-right: 0; }
   .metrics-strip div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
   .process-copy { width: min(52vw,600px); }
-  .process-media img { object-position: 64% 50%; }
+  .brain-layer { width: min(58vh, 74vw); }
   .research-title-row { grid-template-columns: 1fr; gap: 40px; }
   .research-title-row p { margin-left: auto; }
   .research-library { grid-template-columns: 1fr; margin-top: 70px; }
@@ -728,8 +729,8 @@ footer p { margin: 0; font: 500 9px/1.6 DM Mono; letter-spacing: .08em; }
   .capability-modules article { min-height: 290px; }
   .process-section { height: 400svh; padding: 0; }
   .process-stage::before { background: linear-gradient(180deg,rgba(5,5,5,.7) 0%,rgba(5,5,5,.12) 28%,rgba(5,5,5,.2) 60%,rgba(5,5,5,.75) 100%),linear-gradient(90deg,rgba(5,5,5,.4),transparent 65%); }
-  .process-media { inset: -3% -18%; }
-  .process-media canvas, .process-media img { object-position: 58% 43%; filter: contrast(1.04) brightness(1.0); }
+  .brain-layers { inset: 0; align-content: center; }
+  .brain-layer { width: min(52vh, 86vw); max-width: 460px; }
   .process-identifier { top: 21px; left: 18px; }
   .process-copy { left: 18px; right: 38px; bottom: 34px; width: auto; }
   .process-copy article > span { font-size: 7px; }
@@ -878,7 +879,7 @@ footer p { margin: 0; font: 500 9px/1.6 DM Mono; letter-spacing: .08em; }
   .silver-apple { animation: none !important; }
   .process-section { height: 100svh; }
   .process-stage { position: relative; }
-  .process-media { transform: none !important; }
+  .brain-layers { transform: none !important; }
   .process-copy { transform: none !important; opacity: 1 !important; }
   body, a, button { cursor: auto; }
 }
