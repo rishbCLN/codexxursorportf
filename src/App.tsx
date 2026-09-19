@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, useMotionValue, useMotionValueEvent, useMotionTemplate, useReducedMotion, useScroll, useSpring, useTransform } from 'framer-motion'
+import { AnimatePresence, motion, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform } from 'framer-motion'
 import type { MotionValue } from 'framer-motion'
 import gsap from 'gsap'
 import {
@@ -34,6 +34,7 @@ import cloudsUrl from './assets/clouds.png'
 import tojiUrl from './assets/toji.png'
 
 const SonicRing = lazy(() => import('./SonicRing'))
+const SonicExitRing = lazy(() => import('./SonicExitRing'))
 
 const projects = [
   {
@@ -299,10 +300,18 @@ function HeroHandsScene({ progress }: { progress: MotionValue<number> }) {
 
   // Driven by the pinned hero's scroll progress. They stop with a deliberate gap
   // between the index fingers so the 3D sonic ring fits in the opening.
-  const leftX = useTransform(progress, [0, 0.46], ['-24%', '-5.4%'])
-  const leftY = useTransform(progress, [0, 0.46], ['20%', '4.6%'])
-  const rightX = useTransform(progress, [0, 0.46], ['24%', '5.4%'])
-  const rightY = useTransform(progress, [0, 0.46], ['-20%', '-4.6%'])
+  //
+  // DIALS (all %):
+  //   HAND_SHIFT  — slides the WHOLE clasp left. Both hands move together by
+  //                 this amount, so the fingertip gap is unchanged.
+  //   GAP_X/GAP_Y — half the fingertip gap at the touch point.
+  const HAND_SHIFT = 9
+  const GAP_X = 5.4
+  const GAP_Y = 4.6
+  const leftX = useTransform(progress, [0, 0.46], [`${-24 - HAND_SHIFT}%`, `${-GAP_X - HAND_SHIFT}%`])
+  const leftY = useTransform(progress, [0, 0.46], ['20%', `${GAP_Y}%`])
+  const rightX = useTransform(progress, [0, 0.46], [`${24 - HAND_SHIFT}%`, `${GAP_X - HAND_SHIFT}%`])
+  const rightY = useTransform(progress, [0, 0.46], ['-20%', `${-GAP_Y}%`])
   const glowOpacity = useTransform(progress, [0, 0.46], [0.28, 0.9])
 
   return (
@@ -1462,18 +1471,37 @@ function App() {
   // The hero is pinned; scroll scrubs the hands together, then we zoom through the ring to black.
   const heroRef = useRef<HTMLElement>(null)
   const { scrollYProgress: heroRaw } = useScroll({ target: heroRef, offset: ['start start', 'end end'] })
-  const heroProgress = useSpring(heroRaw, { stiffness: 120, damping: 30, restDelta: 0.0002 })
+
+  // The hands close over 0 -> 0.46 of progress and that timing is dialled in
+  // perfectly, so we must NOT change the scroll distance the hands travel. But
+  // the dive + warp felt hyper-sensitive because the WHOLE back half was crammed
+  // into the leftover ~173svh of scroll. Fix: make the hero much taller (more
+  // scroll everywhere) and REMAP raw scroll piecewise so the hands still finish
+  // after the exact same scroll distance, handing the huge remainder to the
+  // dive + warp. Hand feel is byte-for-byte identical; the warp just breathes.
+  //   HERO_VH / HERO_VH_OLD must match .hero height in styles.css.
+  const HERO_VH = 760 // <- keep in sync with .hero (desktop) in styles.css
+  const HERO_VH_OLD = 420 // the height the hand timing was tuned against
+  const VIEW_VH = 100
+  // Scroll distance (in svh) the hands used to travel — the feel we preserve.
+  const HAND_SCROLL = 0.46 * (HERO_VH_OLD - VIEW_VH)
+  // Raw-scroll fraction at which the hands should finish now.
+  const R_TOUCH = HAND_SCROLL / (HERO_VH - VIEW_VH)
+  // Piecewise-linear: [0..R_TOUCH] -> [0..0.46] (hands, same scroll distance),
+  // then [R_TOUCH..1] -> [0.46..1] (dive + warp, now with room to breathe).
+  const heroMapped = useTransform(heroRaw, [0, R_TOUCH, 1], [0, 0.46, 1])
+  const heroProgress = useSpring(heroMapped, { stiffness: 120, damping: 30, restDelta: 0.0002 })
   // Ring stops ~0.60, we dive into the hole 0.60->0.80, then warp. The panel
   // (hero text + hands) scales up into the dive and fades out before the warp
   // so only the ring/stars remain for the journey.
   const panelScale = useTransform(heroProgress, [0.5, 0.8], [1, 4.6])
   const panelOpacity = useTransform(heroProgress, [0.6, 0.74], [1, 0])
 
-  // First-person "emerge from the hole": a dark tunnel vignette whose bright
-  // centre hole grows to fill the view as we pop out into the next section.
-  const emergeHole = useTransform(heroProgress, [0.9, 1], ['10%', '150%'])
-  const emergeOpacity = useTransform(heroProgress, [0.84, 0.9, 1], [0, 1, 1])
-  const emergeBg = useMotionTemplate`radial-gradient(circle at 50% 47%, transparent ${emergeHole}, #050505 calc(${emergeHole} + 10%))`
+  // Punch-through to black: as the exit ring engulfs the camera (~0.86 -> 0.92)
+  // a solid --ink sheet fades in and holds, so we land on a pure black canvas
+  // with nothing flying on it. Because it's the exact manifesto colour, it reads
+  // as one continuous surface straight into the 01 / MANIFESTO section.
+  const emergeOpacity = useTransform(heroProgress, [0.95, 0.975, 1], [0, 1, 1])
 
   // Studio-grade eased/inertial scrolling. Everything scroll-driven (hero scrub,
   // ScrollApple, progress) rides on top of Lenis, so nothing feels linear.
@@ -1576,10 +1604,14 @@ function App() {
               <SonicRing progress={heroProgress} />
             </Suspense>
 
+            <Suspense fallback={null}>
+              <SonicExitRing progress={heroProgress} />
+            </Suspense>
+
             <motion.div
               className="hero-emerge"
               aria-hidden="true"
-              style={{ background: emergeBg, opacity: emergeOpacity }}
+              style={{ background: '#050505', opacity: emergeOpacity }}
             />
           </div>
         </section>

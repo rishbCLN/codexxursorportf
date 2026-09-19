@@ -1,6 +1,7 @@
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Environment, Lightformer } from '@react-three/drei'
 import { Suspense, useMemo, useRef } from 'react'
+import type { Ref } from 'react'
 import { useTransform, useVelocity, useSpring, cubicBezier } from 'framer-motion'
 import type { MotionValue } from 'framer-motion'
 import * as THREE from 'three'
@@ -26,12 +27,38 @@ const REST = 0.92 // resting size once stopped (leaves a comfortable gap)
 const SPIN_TURNS = 3 // full turns completed by the time it stops face-on
 const IDLE_TURNS = 0.5 // gentle extra idle rotation at the very start, fades out
 
+// World-space spot where the ring WAITS while the fingertips close in. This is
+// the clasp point — tune it to sit exactly between the two index fingers. The
+// hands are shifted left in App.tsx (HAND_SHIFT), so this is negative (left).
+// The ring re-centres to origin by STOP so the dive + warp stay centred.
+const RING_WAIT_X = -0.34
+const RING_WAIT_Y = 0.02
+
 const flash = cubicBezier(0.7, 0, 0.3, 1)
 const ease = cubicBezier(0.4, 0, 0.2, 1)
 
 // Smootherstep: 6a^5 - 15a^4 + 10a^3. Value AND velocity are zero at both
 // ends, so a rotation built on it accelerates and decelerates with no snap.
 const smoother = (a: number) => a * a * a * (a * (a * 6 - 15) + 10)
+
+// The gold Sonic ring the hands present (the ENTRY ring). The exit ring is a
+// wholly separate object in SonicExitRing.tsx.
+function RingMesh({ matRef }: { matRef: Ref<THREE.MeshStandardMaterial> }) {
+  return (
+    <mesh>
+      <torusGeometry args={[1, 0.16, 40, 180]} />
+      <meshStandardMaterial
+        ref={matRef}
+        color="#ffca2b"
+        emissive="#8a5200"
+        emissiveIntensity={0.35}
+        metalness={1}
+        roughness={0.14}
+        envMapIntensity={2}
+      />
+    </mesh>
+  )
+}
 
 function Ring({ progress }: { progress: MotionValue<number> }) {
   const group = useRef<THREE.Group>(null)
@@ -45,9 +72,11 @@ function Ring({ progress }: { progress: MotionValue<number> }) {
     [BASE, REST, REST * 11],
     { ease },
   )
-  // Drift from the finger gap to dead centre by the time it stops.
-  const posX = useTransform(progress, [TOUCH, STOP], [0.42, 0], { clamp: true, ease })
-  const posY = useTransform(progress, [TOUCH, STOP], [0.32, 0], { clamp: true, ease })
+  // Waits at the clasp point (shifted left, matching the hands) then drifts to
+  // dead centre by the time it stops — so the dive & warp stay centred.
+  // DIALS: RING_WAIT_X/RING_WAIT_Y = where the ring sits between the fingertips.
+  const posX = useTransform(progress, [TOUCH, STOP], [RING_WAIT_X, 0], { clamp: true, ease })
+  const posY = useTransform(progress, [TOUCH, STOP], [RING_WAIT_Y, 0], { clamp: true, ease })
   // Dive toward the camera during the zoom-in.
   const posZ = useTransform(progress, [STOP, STOP + 0.2], [0, 5.2], { clamp: true, ease: flash })
   // Fade the gold band out as the hole engulfs the view.
@@ -83,20 +112,9 @@ function Ring({ progress }: { progress: MotionValue<number> }) {
   })
 
   return (
-    <group ref={group} position={[0.42, 0.32, 0]} scale={BASE}>
+    <group ref={group} position={[RING_WAIT_X, RING_WAIT_Y, 0]} scale={BASE}>
       <group ref={spinner} rotation={[0.34, 0, 0]}>
-        <mesh>
-          <torusGeometry args={[1, 0.16, 40, 180]} />
-          <meshStandardMaterial
-            ref={mat}
-            color="#ffca2b"
-            emissive="#8a5200"
-            emissiveIntensity={0.35}
-            metalness={1}
-            roughness={0.14}
-            envMapIntensity={2}
-          />
-        </mesh>
+        <RingMesh matRef={mat} />
       </group>
     </group>
   )
@@ -115,13 +133,17 @@ function Hole({ progress }: { progress: MotionValue<number> }) {
   return (
     <mesh position={[0, 0, -6]}>
       <circleGeometry args={[40, 48]} />
-      <meshBasicMaterial ref={mat} color="#04060a" transparent opacity={0} depthWrite={false} />
+      {/* Pure --ink so the black we punch into matches the manifesto exactly. */}
+      <meshBasicMaterial ref={mat} color="#050505" transparent opacity={0} depthWrite={false} />
     </mesh>
   )
 }
 
 const STAR_COUNT = 900
 const TUNNEL = 70 // depth of the warp corridor
+// How many tunnel-lengths of stars stream past across the whole warp window.
+// Lower = calmer, less "a tiny scroll flings me miles" (was an aggressive 6).
+const WARP_WRAPS = 3
 
 // Speeding-stars warp. Star depth is a pure function of scroll PROGRESS, so if
 // you stop scrolling the stars freeze. Trail length is driven by scroll
@@ -131,7 +153,10 @@ function Warp({ progress }: { progress: MotionValue<number> }) {
   const lines = useRef<THREE.LineSegments>(null)
   const mat = useRef<THREE.LineBasicMaterial>(null)
 
-  const active = useTransform(progress, [STOP + 0.14, STOP + 0.2], [0, 1], { clamp: true })
+  // Stars stream in as the warp opens and keep flying through a long corridor
+  // (the exit ring only shows up at ~0.86), then fade OUT right at the punch-
+  // through so NOTHING is left flying once we hit the black.
+  const active = useTransform(progress, [STOP + 0.12, STOP + 0.18, 0.94, 0.975], [0, 1, 1, 0], { clamp: true })
   // Smoothed absolute scroll velocity -> trail length.
   const velocity = useVelocity(progress)
   const smoothVel = useSpring(velocity, { stiffness: 220, damping: 40 })
@@ -159,7 +184,7 @@ function Warp({ progress }: { progress: MotionValue<number> }) {
     if (lines.current && a > 0.001) {
       const p = progress.get()
       // Travel maps progress across the warp window into tunnel distance.
-      const travel = ((p - (STOP + 0.14)) / (1 - (STOP + 0.14))) * TUNNEL * 6
+      const travel = ((p - (STOP + 0.14)) / (1 - (STOP + 0.14))) * TUNNEL * WARP_WRAPS
       const trail = THREE.MathUtils.clamp(Math.abs(smoothVel.get()) * 26, 0.05, 7)
       const arr = positions
 
@@ -197,64 +222,6 @@ function Warp({ progress }: { progress: MotionValue<number> }) {
   )
 }
 
-// The ring waiting on the far side of the warp — a small ring appears in the
-// centre while warping, then approaches and grows. Inside its hole sits a lit
-// disc: the next section peeking through, which we emerge into.
-function SecondRing({ progress }: { progress: MotionValue<number> }) {
-  const group = useRef<THREE.Group>(null)
-  const spinner = useRef<THREE.Group>(null)
-  const mat = useRef<THREE.MeshStandardMaterial>(null)
-  const coreMat = useRef<THREE.MeshBasicMaterial>(null)
-  const spin = useRef(0)
-
-  // Shows up small mid-warp, then rushes in and grows huge as we reach it.
-  const z = useTransform(progress, [0.82, 1], [-46, 4.4], { clamp: true, ease })
-  const s = useTransform(progress, [0.82, 1], [0.32, 2.6], { clamp: true, ease })
-  const fade = useTransform(progress, [0.82, 0.9], [0, 1], { clamp: true })
-  // The hole brightens as we approach — the light of the next section.
-  const core = useTransform(progress, [0.9, 1], [0, 1], { clamp: true, ease })
-
-  useFrame((_, delta) => {
-    spin.current += Math.min(delta, 0.05) * 1.1
-    if (spinner.current) spinner.current.rotation.y = spin.current
-    if (group.current) {
-      group.current.position.z = z.get()
-      group.current.scale.setScalar(s.get())
-    }
-    if (mat.current) {
-      mat.current.opacity = fade.get()
-      mat.current.transparent = true
-    }
-    if (coreMat.current) coreMat.current.opacity = core.get()
-  })
-
-  return (
-    <group ref={group} position={[0, 0, -46]} scale={0.32}>
-      {/* Lit disc filling the hole — the next section glowing through. */}
-      <mesh position={[0, 0, -0.05]}>
-        <circleGeometry args={[0.9, 48]} />
-        <meshBasicMaterial ref={coreMat} color="#f2f1eb" transparent opacity={0} />
-      </mesh>
-      <group ref={spinner} rotation={[0.2, 0, 0]}>
-        <mesh>
-          <torusGeometry args={[1, 0.16, 40, 180]} />
-          <meshStandardMaterial
-            ref={mat}
-            color="#ffca2b"
-            emissive="#8a5200"
-            emissiveIntensity={0.35}
-            metalness={1}
-            roughness={0.14}
-            envMapIntensity={2}
-            transparent
-            opacity={0}
-          />
-        </mesh>
-      </group>
-    </group>
-  )
-}
-
 export default function SonicRing({ progress }: { progress: MotionValue<number> }) {
   return (
     <div className="hero-ring-canvas" aria-hidden="true">
@@ -268,7 +235,6 @@ export default function SonicRing({ progress }: { progress: MotionValue<number> 
         <Suspense fallback={null}>
           <Hole progress={progress} />
           <Warp progress={progress} />
-          <SecondRing progress={progress} />
           <Ring progress={progress} />
           <Environment resolution={256}>
             <Lightformer form="rect" intensity={4} color="#ffe6a6" position={[-4, 3, 4]} scale={[6, 9, 1]} />
