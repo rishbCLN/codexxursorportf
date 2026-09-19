@@ -1,35 +1,38 @@
-import { AnimatePresence, motion, useMotionValue, useScroll, useSpring, useTransform } from 'framer-motion'
+import { AnimatePresence, motion, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform } from 'framer-motion'
+import type { MotionValue } from 'framer-motion'
+import gsap from 'gsap'
 import {
-  Activity,
   ArrowDown,
   ArrowUpRight,
   Asterisk,
   AudioLines,
-  Binary,
   Box,
   Braces,
-  Check,
   ChevronLeft,
   ChevronRight,
   Code2,
   Cpu,
   Database,
-  Gauge,
   Github,
-  Globe2,
-  Layers3,
   Linkedin,
   Mail,
   MoveRight,
   Play,
-  ScanLine,
+  Plus,
+  Search,
+  ShoppingBag,
   TerminalSquare,
-  Workflow,
+  Wind,
   Zap,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
+import Lenis from 'lenis'
 import ScrollApple from './ScrollApple'
+import heroHandLeftUrl from './assets/hero-hand-left.png'
+import heroHandRightUrl from './assets/hero-hand-right.png'
+import cloudsUrl from './assets/clouds.png'
+import tojiUrl from './assets/toji.png'
 
 const projects = [
   {
@@ -43,6 +46,9 @@ const projects = [
     device: 'phone',
     platform: 'IOS / SPATIAL INTERFACE',
     result: '2.4M LIVE SESSIONS',
+    image: 'https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?auto=format&fit=crop&w=1200&q=88',
+    imageAlt: 'Dark storm clouds rolling across a luminous mountain atmosphere',
+    imagePosition: '50% 50%',
   },
   {
     index: '02',
@@ -55,6 +61,9 @@ const projects = [
     device: 'laptop',
     platform: 'WEB / COMMERCE PLATFORM',
     result: '+38% CONVERSION',
+    image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1600&q=88&sat=-100',
+    imageAlt: 'Monochrome editorial portrait in sculptural fashion',
+    imagePosition: '50% 34%',
   },
   {
     index: '03',
@@ -67,8 +76,48 @@ const projects = [
     device: 'phone',
     platform: 'IOS / CULTURAL ARCHIVE',
     result: '120K STORIES INDEXED',
+    image: 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=1200&q=88&sat=-20',
+    imageAlt: 'Intimate archival-style portrait of a woman against a textured wall',
+    imagePosition: '50% 50%',
   },
 ]
+
+const processPhases = [
+  {
+    number: '01',
+    phase: 'INTERROGATE',
+    title: 'FIND THE\nSIGNAL.',
+    detail: 'Question assumptions, map constraints, and locate the emotional center before touching the interface.',
+  },
+  {
+    number: '02',
+    phase: 'PROTOTYPE',
+    title: 'MAKE IT\nTANGIBLE.',
+    detail: 'Move directly into code. Test interaction, type, performance, and motion in the medium itself.',
+  },
+  {
+    number: '03',
+    phase: 'ENGINEER',
+    title: 'BUILD THE\nSYSTEM.',
+    detail: 'Turn the strongest direction into durable architecture with clear primitives and predictable behavior.',
+  },
+  {
+    number: '04',
+    phase: 'REFINE',
+    title: 'TUNE EVERY\nFRAME.',
+    detail: 'Pressurize the details, remove friction, and make performance part of the final aesthetic.',
+  },
+]
+
+const brainFrameModules = import.meta.glob<string>('./assets/brain-frames/*.webp', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+})
+
+const brainFrameUrls = Object.entries(brainFrameModules)
+  .sort(([firstPath], [secondPath]) => firstPath.localeCompare(secondPath, undefined, { numeric: true }))
+  .map(([, url]) => url)
 
 const capabilities = [
   ['01', 'CREATIVE DEVELOPMENT', 'Interfaces with a point of view. Built from first principles with motion, sound, and interaction as core materials.'],
@@ -85,7 +134,7 @@ const researchPapers = [
     field: 'HUMAN-COMPUTER INTERACTION',
     year: '2026',
     status: 'PREPRINT',
-    accent: '#c6ff00',
+    accent: '#e7b65c',
     figure: 'field',
     abstract: 'This paper proposes a visual grammar for adaptive interfaces that preserve orientation, authorship, and user agency while changing in real time. It treats adaptation as a legible spatial event rather than an invisible optimization.',
     keywords: ['ADAPTIVE UI', 'AGENCY', 'SPATIAL SYSTEMS'],
@@ -231,45 +280,53 @@ const recognition = [
 ]
 
 
-function HeroHands() {
+function HeroHandsScene({ progress }: { progress: MotionValue<number> }) {
+  // Pointer parallax (adds depth, independent of scroll)
+  const px = useMotionValue(0)
+  const py = useMotionValue(0)
+  const driftX = useSpring(px, { stiffness: 55, damping: 22, mass: 0.6 })
+  const driftY = useSpring(py, { stiffness: 55, damping: 22, mass: 0.6 })
+
+  useEffect(() => {
+    const move = (event: PointerEvent) => {
+      px.set((event.clientX / window.innerWidth - 0.5) * 22)
+      py.set((event.clientY / window.innerHeight - 0.5) * 16)
+    }
+    window.addEventListener('pointermove', move)
+    return () => window.removeEventListener('pointermove', move)
+  }, [px, py])
+
+  // Driven by the pinned hero's scroll progress: parted at the top, closing as you scroll.
+  const leftX = useTransform(progress, [0, 0.46], ['-24%', '0%'])
+  const leftY = useTransform(progress, [0, 0.46], ['20%', '0%'])
+  const rightX = useTransform(progress, [0, 0.46], ['24%', '0%'])
+  const rightY = useTransform(progress, [0, 0.46], ['-20%', '0%'])
+  const glowOpacity = useTransform(progress, [0, 0.46], [0.28, 0.9])
+  const sparkOpacity = useTransform(progress, [0.36, 0.46], [0, 1])
+  const sparkScale = useTransform(progress, [0.36, 0.5], [0.4, 1])
+
   return (
-    <div className="hero-hands" aria-hidden="true">
-      <svg viewBox="0 0 1000 520" role="presentation">
-        <defs>
-          <linearGradient id="hand-silver" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#e8e3d6" />
-            <stop offset=".35" stopColor="#9d9b93" />
-            <stop offset=".7" stopColor="#565955" />
-            <stop offset="1" stopColor="#c7c5bc" />
-          </linearGradient>
-          <filter id="hand-depth" x="-20%" y="-30%" width="140%" height="160%">
-            <feDropShadow dx="0" dy="12" stdDeviation="13" floodColor="#000" floodOpacity=".7" />
-          </filter>
-        </defs>
-        <motion.g
-          className="hero-hand hero-hand-left"
-          initial={{ x: -90, opacity: 0 }}
-          animate={{ x: [0, 7, 0], opacity: 1 }}
-          transition={{ x: { duration: 7, repeat: Infinity, ease: 'easeInOut' }, opacity: { delay: 1.35, duration: 1 } }}
-          filter="url(#hand-depth)"
-        >
-          <path className="hand-fill" d="M-65 350C52 320 133 287 219 247c59-27 91-59 137-83 37-20 74-26 98-12 16 10 14 25-3 35-26 15-61 24-87 42 49-17 105-33 143-23 19 5 28 19 20 31-9 14-39 16-70 18 31 3 53 11 54 25 1 18-30 24-71 19-32-4-61-11-91-3-44 12-86 46-125 75-50 37-102 68-178 91L-65 350Z" />
-          <path className="hand-outline" d="M-65 350C52 320 133 287 219 247c59-27 91-59 137-83 37-20 74-26 98-12 16 10 14 25-3 35-26 15-61 24-87 42 49-17 105-33 143-23 19 5 28 19 20 31-9 14-39 16-70 18 31 3 53 11 54 25 1 18-30 24-71 19-32-4-61-11-91-3-44 12-86 46-125 75-50 37-102 68-178 91" />
-          <path className="hand-detail" d="M220 247c44 8 88 2 144-18M260 276c51-6 112-20 197-21M302 307c45-16 86-17 138-8M176 326c62-3 108-20 157-54M350 198c30-11 64-16 93-12" />
-        </motion.g>
-        <motion.g
-          className="hero-hand hero-hand-right"
-          initial={{ x: 90, opacity: 0 }}
-          animate={{ x: [0, -7, 0], opacity: 1 }}
-          transition={{ x: { duration: 7, repeat: Infinity, ease: 'easeInOut' }, opacity: { delay: 1.5, duration: 1 } }}
-          filter="url(#hand-depth)"
-        >
-          <path className="hand-fill" d="M1060 85C936 109 846 148 779 190c-38 24-70 52-107 71-33 16-61 20-90 15l-82-14c-21-4-42 2-47 15-6 15 15 27 42 31l74 11c-42 9-91 22-121 43-17 12-17 28-1 36 20 10 52-3 80-13-25 17-35 34-23 46 14 14 44 0 76-22 40-27 70-57 112-71 54-18 110-11 163-26 63-17 128-53 205-99l80-128Z" />
-          <path className="hand-outline" d="M1060 85C936 109 846 148 779 190c-38 24-70 52-107 71-33 16-61 20-90 15l-82-14c-21-4-42 2-47 15-6 15 15 27 42 31l74 11c-42 9-91 22-121 43-17 12-17 28-1 36 20 10 52-3 80-13-25 17-35 34-23 46 14 14 44 0 76-22 40-27 70-57 112-71 54-18 110-11 163-26 63-17 128-53 205-99" />
-          <path className="hand-detail" d="M779 190c-16 44-46 91-87 148M735 215c-44 34-91 56-166 104M681 253c-57 27-104 40-154 66M829 163c-29 45-51 77-87 108M862 290c-58-15-113-13-170 48" />
-        </motion.g>
-        <motion.circle className="finger-spark" cx="546" cy="286" r="3" animate={{ r: [2, 6, 2], opacity: [.4, 1, .4] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }} />
-      </svg>
+    <div className="hero-canvas" aria-hidden="true">
+      <motion.div className="hero-hands-wrap" style={{ x: driftX, y: driftY }}>
+        {/* Luminous stage so the dark chrome reads against the black hero */}
+        <motion.div className="hero-stage-glow" style={{ opacity: glowOpacity }} />
+
+        {/* Left / lower hand — scroll pulls it in toward the gap */}
+        <motion.div className="hero-hand hand-left" style={{ x: leftX, y: leftY }}>
+          <img className="hero-hand-img" src={heroHandLeftUrl} alt="" draggable={false} />
+        </motion.div>
+
+        {/* Right / upper hand — mirrors it so the fingertips come close but never touch */}
+        <motion.div className="hero-hand hand-right" style={{ x: rightX, y: rightY }}>
+          <img className="hero-hand-img" src={heroHandRightUrl} alt="" draggable={false} />
+        </motion.div>
+
+        {/* A quiet ember gathers in the gap as the fingertips close */}
+        <motion.div className="hero-spark" style={{ opacity: sparkOpacity, scale: sparkScale }}>
+          <span className="spark-glow" />
+          <span className="spark-core" />
+        </motion.div>
+      </motion.div>
     </div>
   )
 }
@@ -282,13 +339,18 @@ function Cursor() {
   const [active, setActive] = useState(false)
 
   useEffect(() => {
-    const move = (event: MouseEvent) => {
+    const move = (event: PointerEvent | MouseEvent) => {
       x.set(event.clientX)
       y.set(event.clientY)
-      setActive(Boolean((event.target as HTMLElement).closest('a, button, .project-visual')))
+      const target = event.target instanceof Element ? event.target : null
+      setActive(Boolean(target?.closest('a, button, .project-visual, [role="button"]')))
     }
+    window.addEventListener('pointermove', move)
     window.addEventListener('mousemove', move)
-    return () => window.removeEventListener('mousemove', move)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('mousemove', move)
+    }
   }, [x, y])
 
   return (
@@ -296,36 +358,70 @@ function Cursor() {
       className="cursor"
       data-active={active}
       style={{ x: smoothX, y: smoothY }}
-      transition={{ type: 'spring' }}
     />
   )
 }
 
 function Loader() {
   const [visible, setVisible] = useState(true)
-  const [count, setCount] = useState(0)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const worldRef = useRef<HTMLDivElement>(null)
+  const tojiRef = useRef<HTMLImageElement>(null)
+  const speedRef = useRef<HTMLDivElement>(null)
+  const blackoutRef = useRef<HTMLDivElement>(null)
+  const barRef = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
-    const started = performance.now()
-    let frame = 0
-    const tick = (now: number) => {
-      const progress = Math.min(100, Math.floor(((now - started) / 1350) * 100))
-      setCount(progress)
-      if (progress < 100) frame = requestAnimationFrame(tick)
-      else window.setTimeout(() => setVisible(false), 240)
-    }
-    frame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frame)
+    const shadow = 'drop-shadow(0 14px 30px rgba(0,0,0,0.5))'
+    const ctx = gsap.context(() => {
+      gsap.set(tojiRef.current, { xPercent: -50, yPercent: -30, rotation: -3, opacity: 1, filter: `blur(0px) ${shadow}` })
+      gsap.set(worldRef.current, { scale: 1, transformOrigin: '50% 70%' })
+      gsap.set(barRef.current, { scaleX: 0, transformOrigin: 'center' })
+      gsap.set(speedRef.current, { opacity: 0 })
+      gsap.set(blackoutRef.current, { opacity: 0 })
+
+      const tl = gsap.timeline({ onComplete: () => window.setTimeout(() => setVisible(false), 150) })
+
+      // Progress hairline fills across the whole intro.
+      tl.to(barRef.current, { scaleX: 1, ease: 'none', duration: 4 }, 0)
+      // Straight fall, continuously accelerating (real gravity — power2.in).
+      tl.to(tojiRef.current, { yPercent: 450, rotation: 2, ease: 'power2.in', duration: 3.3 }, 0)
+      // Motion blur only in the last stretch of the fall (peak velocity).
+      tl.to(tojiRef.current, { filter: `blur(12px) ${shadow}`, ease: 'power2.in', duration: 1.3 }, 2)
+      // Anime speed lines during the fast stretch.
+      tl.to(speedRef.current, { opacity: 0.55, duration: 0.4 }, 2)
+      tl.to(speedRef.current, { opacity: 0, duration: 0.5 }, 3)
+      // No zoom during the fall — hard, accelerating punch-in as he nears the clouds.
+      tl.to(worldRef.current, { scale: 2.9, ease: 'power3.in', duration: 1.2 }, 2.4)
+      // He vanishes into the clouds.
+      tl.to(tojiRef.current, { opacity: 0, duration: 0.4 }, 3.1)
+      // Brief darkness, then the hero emerges.
+      tl.to(blackoutRef.current, { opacity: 1, duration: 0.5 }, 3.5)
+    }, rootRef)
+
+    return () => ctx.revert()
   }, [])
 
   return (
     <AnimatePresence>
       {visible && (
-        <motion.div className="loader" exit={{ y: '-100%' }} transition={{ duration: 0.8, ease: [0.76, 0, 0.24, 1] }}>
-          <div className="loader-mark"><Asterisk size={20} /> AR / 26</div>
-          <div className="loader-count">{String(count).padStart(3, '0')}</div>
-          <div className="loader-track"><motion.span style={{ scaleX: count / 100 }} /></div>
-          <p>COMPILING VISUAL SYSTEM</p>
+        <motion.div ref={rootRef} className="loader" exit={{ opacity: 0 }} transition={{ duration: 0.55, ease: [0.76, 0, 0.24, 1] }}>
+          <div className="loader-scene">
+            <div className="loader-world" ref={worldRef}>
+              <div className="loader-sky">
+                <img className="loader-clouds" src={cloudsUrl} alt="" draggable={false} />
+                <div className="loader-speed" ref={speedRef}><div className="loader-speed-lines" /></div>
+                <img className="loader-toji" ref={tojiRef} src={tojiUrl} alt="" draggable={false} />
+                <div className="loader-sky-fade" />
+              </div>
+            </div>
+          </div>
+          <div className="loader-blackout" ref={blackoutRef} />
+          <div className="loader-hud">
+            <div className="loader-mark"><Asterisk size={16} /> AR / 26</div>
+            <div className="loader-status">LOADING</div>
+          </div>
+          <div className="loader-progress"><span ref={barRef} /></div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -467,96 +563,223 @@ function SoundControl() {
   )
 }
 
-function MetricsStrip() {
-  const metrics = [
-    ['10+', 'YEARS IN THE BROWSER'],
-    ['47', 'PROJECTS SHIPPED'],
-    ['19', 'GLOBAL AWARDS'],
-    ['60', 'FRAMES / SECOND'],
-  ]
-
-  return (
-    <section className="metrics-strip" aria-label="Selected metrics">
-      {metrics.map(([value, label], index) => (
-        <motion.div
-          key={label}
-          initial={{ opacity: 0, y: 25 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: index * 0.08 }}
-        >
-          <strong>{value}</strong>
-          <span>{label}</span>
-        </motion.div>
-      ))}
-    </section>
-  )
-}
-
 function ProcessSection() {
-  const steps = [
-    {
-      number: '01',
-      phase: 'INTERROGATE',
-      verb: 'UNDERSTAND',
-      detail: 'Question assumptions, map constraints, and locate the emotional center of the problem before touching the interface.',
-      output: 'STRATEGY / SYSTEM MAP',
-      icon: ScanLine,
-    },
-    {
-      number: '02',
-      phase: 'PROTOTYPE',
-      verb: 'MAKE',
-      detail: 'Move directly into code. Test interaction, type, performance, and motion in the medium where the work will actually live.',
-      output: 'WORKING PROTOTYPE',
-      icon: Workflow,
-    },
-    {
-      number: '03',
-      phase: 'ENGINEER',
-      verb: 'SYSTEMIZE',
-      detail: 'Turn the strongest direction into a durable architecture with clear primitives, predictable behavior, and real data.',
-      output: 'PRODUCTION BUILD',
-      icon: Layers3,
-    },
-    {
-      number: '04',
-      phase: 'REFINE',
-      verb: 'PRESSURIZE',
-      detail: 'Test every device and edge case, remove friction, tune every frame, and make performance part of the aesthetic.',
-      output: 'RELEASE / EVOLVE',
-      icon: Gauge,
-    },
-  ]
+  const sectionRef = useRef<HTMLElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const loadedFramesRef = useRef<boolean[]>(brainFrameUrls.map(() => false))
+  const preloadedImagesRef = useRef<HTMLImageElement[]>([])
+  const requestedFrameIndexRef = useRef(0)
+  const currentFrameIndexRef = useRef(0)
+  const activePhaseRef = useRef(0)
+
+  const reducedMotion = useReducedMotion()
+  const [activePhase, setActivePhase] = useState(0)
+
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ['start start', 'end end'],
+  })
+
+  // Framer Motion spring physics for tactile, silky-smooth scroll tracking
+  const smoothProgress = useSpring(scrollYProgress, {
+    stiffness: 85,
+    damping: 26,
+    mass: 0.35,
+    restDelta: 0.0001,
+  })
+
+  const mediaScale = useTransform(smoothProgress, [0, 0.42, 1], [1.075, 1, 1.045])
+  const mediaY = useTransform(smoothProgress, [0, 1], ['2.5%', '-2.5%'])
+  const copyY = useTransform(smoothProgress, [0, 0.5, 1], [24, 0, -24])
+  const copyOpacity = useTransform(smoothProgress, [0, 0.045, 0.94, 1], [0.35, 1, 1, 0.35])
+
+  const lastFrameIndex = brainFrameUrls.length - 1
+  const reducedFrameIndex = Math.round(lastFrameIndex * 0.42)
+
+  // Pure Framer Motion transform mapping scroll progression directly to frame index
+  const frameProgress = useTransform(smoothProgress, [0, 1], [0, lastFrameIndex], { clamp: true })
+
+  const drawFrame = useCallback((requestedIndex: number) => {
+    const canvas = canvasRef.current
+    if (!canvas || lastFrameIndex < 0) return
+
+    const targetIndex = Math.min(Math.max(requestedIndex, 0), lastFrameIndex)
+    requestedFrameIndexRef.current = targetIndex
+    let displayIndex = targetIndex
+
+    if (!loadedFramesRef.current[displayIndex]) {
+      for (let distance = 1; distance <= lastFrameIndex; distance += 1) {
+        const before = targetIndex - distance
+        const after = targetIndex + distance
+        if (before >= 0 && loadedFramesRef.current[before]) {
+          displayIndex = before
+          break
+        }
+        if (after <= lastFrameIndex && loadedFramesRef.current[after]) {
+          displayIndex = after
+          break
+        }
+      }
+    }
+
+    if (!loadedFramesRef.current[displayIndex]) return
+
+    const img = preloadedImagesRef.current[displayIndex]
+    if (!img || !img.complete || img.naturalWidth === 0) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const canvasWidth = canvas.clientWidth
+    const canvasHeight = canvas.clientHeight
+    if (canvasWidth === 0 || canvasHeight === 0) return
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    const displayWidth = Math.round(canvasWidth * dpr)
+    const displayHeight = Math.round(canvasHeight * dpr)
+
+    if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
+      canvas.width = displayWidth
+      canvas.height = displayHeight
+    }
+
+    const cWidth = canvas.width
+    const cHeight = canvas.height
+    const imgRatio = img.naturalWidth / img.naturalHeight
+    const canvasRatio = cWidth / cHeight
+
+    let drawW = cWidth
+    let drawH = cHeight
+    let drawX = 0
+    let drawY = 0
+
+    if (canvasRatio > imgRatio) {
+      drawH = cWidth / imgRatio
+      drawY = (cHeight - drawH) * 0.5
+    } else {
+      drawW = cHeight * imgRatio
+      drawX = (cWidth - drawW) * 0.58
+    }
+
+    ctx.clearRect(0, 0, cWidth, cHeight)
+    ctx.drawImage(img, drawX, drawY, drawW, drawH)
+    currentFrameIndexRef.current = displayIndex
+
+    const nextPhase = Math.min(
+      Math.floor((displayIndex / Math.max(lastFrameIndex, 1)) * processPhases.length),
+      processPhases.length - 1,
+    )
+    if (nextPhase !== activePhaseRef.current) {
+      activePhaseRef.current = nextPhase
+      setActivePhase(nextPhase)
+    }
+  }, [lastFrameIndex])
+
+  // Framer Motion event listener updating canvas smoothly as user scrolls
+  useMotionValueEvent(frameProgress, 'change', (latest) => {
+    if (reducedMotion) return
+    drawFrame(Math.round(latest))
+  })
+
+  // Frame assets preloader
+  useEffect(() => {
+    let cancelled = false
+    const images: HTMLImageElement[] = []
+    preloadedImagesRef.current = images
+    loadedFramesRef.current = brainFrameUrls.map(() => false)
+
+    const preloadFrame = (url: string, index: number) => new Promise<void>((resolve) => {
+      const image = new Image()
+      images[index] = image
+      image.decoding = 'async'
+      image.fetchPriority = index === 0 || index === lastFrameIndex ? 'high' : 'low'
+      image.onload = () => {
+        void image.decode().catch(() => undefined).then(() => {
+          if (!cancelled) {
+            loadedFramesRef.current[index] = true
+            if (index === requestedFrameIndexRef.current || !loadedFramesRef.current[requestedFrameIndexRef.current]) {
+              drawFrame(requestedFrameIndexRef.current)
+            }
+          }
+          resolve()
+        })
+      }
+      image.onerror = () => resolve()
+      image.src = url
+    })
+
+    const preloadRemainingFrames = () => {
+      if (cancelled) return
+      void Promise.allSettled(
+        brainFrameUrls.slice(1).map((url, index) => preloadFrame(url, index + 1)),
+      )
+    }
+
+    void preloadFrame(brainFrameUrls[0], 0).then(preloadRemainingFrames, preloadRemainingFrames)
+
+    return () => {
+      cancelled = true
+      images.forEach((image) => {
+        image.onload = null
+        image.onerror = null
+      })
+      preloadedImagesRef.current = []
+    }
+  }, [drawFrame, lastFrameIndex])
+
+  // Initial draw & response to reduced motion
+  useEffect(() => {
+    const frameIndex = reducedMotion ? reducedFrameIndex : Math.round(frameProgress.get())
+    requestedFrameIndexRef.current = frameIndex
+    drawFrame(frameIndex)
+  }, [drawFrame, frameProgress, reducedFrameIndex, reducedMotion])
+
+  // Handle dynamic canvas resizing
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const resizeObserver = new ResizeObserver(() => {
+      drawFrame(requestedFrameIndexRef.current)
+    })
+    resizeObserver.observe(canvas)
+    return () => resizeObserver.disconnect()
+  }, [drawFrame])
+
+  const displayedPhase = reducedMotion ? 1 : activePhase
+  const phase = processPhases[displayedPhase]
 
   return (
-    <section className="process-section" id="process">
-      <div className="process-intro">
-        <div className="section-tag"><span>04</span> / OPERATING SYSTEM</div>
-        <Reveal>
-          <p>NO BLACK BOX.<br /><i>JUST A CLEAR PROCESS</i><br />BUILT AROUND MAKING.</p>
-        </Reveal>
-      </div>
-      <div className="process-list">
-        {steps.map((step, index) => {
-          const Icon = step.icon
-          return (
+    <section className="process-section" id="process" ref={sectionRef}>
+      <div className="process-stage">
+        <motion.div
+          className="process-media"
+          style={reducedMotion ? undefined : { scale: mediaScale, y: mediaY }}
+          aria-hidden="true"
+        >
+          <canvas
+            ref={canvasRef}
+            aria-hidden="true"
+          />
+        </motion.div>
+        <div className="process-identifier section-tag">
+          <span>04</span> / OPERATING SYSTEM
+        </div>
+        <motion.div className="process-copy" style={reducedMotion ? undefined : { y: copyY, opacity: copyOpacity }}>
+          <AnimatePresence mode="wait" initial={false}>
             <motion.article
-              className="process-row"
-              key={step.number}
-              initial={{ opacity: 0, x: index % 2 === 0 ? -40 : 40 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: '-10%' }}
-              transition={{ duration: 0.75, delay: index * 0.06 }}
+              key={phase.number}
+              initial={reducedMotion ? false : { opacity: 0, y: 22, filter: 'blur(8px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              exit={reducedMotion ? undefined : { opacity: 0, y: -18, filter: 'blur(8px)' }}
+              transition={{ duration: reducedMotion ? 0 : 0.42, ease: [0.22, 1, 0.36, 1] }}
             >
-              <div className="process-number">{step.number}</div>
-              <div className="process-icon"><Icon /></div>
-              <div className="process-title"><small>{step.phase}</small><h3>{step.verb}</h3></div>
-              <p>{step.detail}</p>
-              <span className="process-output"><Check /> {step.output}</span>
+              <span>{phase.number} / {phase.phase}</span>
+              <h2>{phase.title.split('\n').map((line) => <span key={line}>{line}</span>)}</h2>
+              <p>{phase.detail}</p>
             </motion.article>
-          )
-        })}
+          </AnimatePresence>
+        </motion.div>
       </div>
     </section>
   )
@@ -937,60 +1160,151 @@ function TestimonialSection() {
   )
 }
 
-function PhoneScreen({ theme, active }: { theme: string; active: boolean }) {
-  if (theme === 'weather') {
-    return (
-      <div className="device-ui weather-ui">
-        <div className="mobile-status"><span>9:41</span><span><i /><i /><b /></span></div>
-        <div className="weather-mobile-head"><span>NEW YORK CITY</span><button aria-label="Weather menu"><i /><i /></button></div>
-        <div className="weather-mobile-copy"><small>THURSDAY / SEP 08</small><strong>18°</strong><span>FEELS LIKE 16°</span></div>
-        <motion.div className="mobile-weather-planet" animate={{ rotate: active ? 180 : 0 }} transition={{ duration: 8, ease: 'linear' }}>
-          <i /><i /><i />
-        </motion.div>
-        <div className="weather-mobile-stats">
-          <div><span>WIND</span><strong>12 <small>KM/H</small></strong></div>
-          <div><span>HUMIDITY</span><strong>67<small>%</small></strong></div>
-          <div><span>VISIBILITY</span><strong>9.2 <small>KM</small></strong></div>
-        </div>
-        <div className="mobile-forecast">
-          {['NOW', '11', '12', '13', '14'].map((hour, index) => <div className={index === 0 ? 'is-current' : ''} key={hour}><span>{hour}</span><i /><strong>{18 + index}°</strong></div>)}
-        </div>
-      </div>
-    )
-  }
-
+function WeatherScreen({ active }: { active: boolean }) {
+  const forecast = [
+    ['NOW', '14°'],
+    ['21', '12°'],
+    ['00', '09°'],
+    ['03', '07°'],
+    ['06', '08°'],
+  ]
   return (
-    <div className="device-ui memory-ui">
-      <div className="mobile-status"><span>9:41</span><span><i /><i /><b /></span></div>
-      <div className="memory-mobile-head"><span>SM / 0432</span><Asterisk /></div>
-      <div className="memory-mobile-title"><small>AN ORAL HISTORY ARCHIVE</small><strong>MEMORY<br />IS A <i>PLACE.</i></strong></div>
-      <motion.div className="memory-mobile-disc" animate={{ rotate: active ? 360 : 0 }} transition={{ duration: 16, repeat: Infinity, ease: 'linear' }}><i /><b /></motion.div>
-      <div className="memory-wave" aria-hidden="true">{Array.from({ length: 34 }, (_, index) => <i style={{ height: `${15 + ((index * 17) % 48)}%` }} key={index} />)}</div>
-      <div className="memory-player"><button aria-label="Play story"><Play /></button><div><strong>THE BLUE HOUSE</strong><span>ALMA REYES / 04:32</span></div><span>02:17</span></div>
-      <div className="memory-mobile-footer"><span>DISCOVER</span><span>ARCHIVE</span><span>ABOUT</span></div>
+    <div className="app-scene app-weather">
+      <div className="app-noise" aria-hidden="true" />
+      <motion.div
+        className="wx-orb"
+        aria-hidden="true"
+        animate={active ? { scale: 1.06, rotate: 8 } : { scale: 1, rotate: 0 }}
+        transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <i /><i /><i />
+      </motion.div>
+      <motion.span className="wx-scan" aria-hidden="true" animate={{ y: ['0%', '2400%'] }} transition={{ duration: 4.5, repeat: Infinity, ease: 'linear' }} />
+      <div className="app-status"><span>9:41</span><span className="app-status-dots"><i /><i /><i /></span></div>
+      <div className="wx-head">
+        <span>NORTH ATLANTIC CELL</span>
+        <strong>REYKJAVÍK</strong>
+      </div>
+      <div className="wx-temp">
+        <em>14<sup>°</sup></em>
+        <span>FEELS 09° / CLEARING<br />WIND SHEAR NOMINAL</span>
+      </div>
+      <div className="wx-readouts">
+        <span>HUMIDITY<b>72%</b></span>
+        <span>PRESSURE<b>1014</b></span>
+        <span>UV IDX<b>02</b></span>
+      </div>
+      <div className="wx-forecast">
+        {forecast.map(([h, t], i) => (
+          <motion.span
+            key={h}
+            initial={{ opacity: 0, y: 8 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 + i * 0.06 }}
+          >
+            <small>{h}</small>
+            <Wind />
+            <b>{t}</b>
+          </motion.span>
+        ))}
+      </div>
     </div>
   )
 }
 
-function LaptopScreen({ active }: { active: boolean }) {
+function NoirScreen({ active }: { active: boolean }) {
+  const products = [
+    ['001', 'STRUCTURED COAT', '€1,290'],
+    ['002', 'RAW HEM TROUSER', '€560'],
+    ['003', 'CASHMERE MASK', '€340'],
+  ]
   return (
-    <div className="device-ui noir-ui">
-      <div className="noir-browser-bar"><span><i /><i /><i /></span><b>NOIR.SYSTEMS / COLLECTION_06</b><span>EN / USD</span></div>
-      <div className="noir-site-nav"><strong>NØIR</strong><div><span>COLLECTIONS</span><span>OBJECTS</span><span>STUDIO</span></div><span>BAG / 02</span></div>
-      <div className="noir-screen-hero">
-        <div className="noir-screen-copy"><small>EDITION / 006</small><strong>FORM<br />FOLLOWS<br /><i>FEELING.</i></strong><button>EXPLORE COLLECTION <ArrowUpRight /></button></div>
-        <div className="noir-product-stage">
-          <motion.div className="noir-product" animate={{ y: active ? [-5, 5, -5] : 0, rotate: active ? [-1, 1, -1] : 0 }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}><i /><i /><b /></motion.div>
-          <span>OBJECT 014<br />ENGINEERED WOOL</span>
-          <div className="noir-index">01 <i /> 06</div>
+    <div className="app-scene app-noir">
+      <div className="app-noise" aria-hidden="true" />
+      <header className="nr-bar">
+        <span className="nr-logo">NOIR<sup>®</sup></span>
+        <nav><span>SHOP</span><span>ARCHIVE</span><span>ATELIER</span></nav>
+        <span className="nr-cart"><ShoppingBag /> 02</span>
+      </header>
+      <div className="nr-hero">
+        <motion.div className="nr-column" aria-hidden="true" animate={active ? { y: -8 } : { y: 0 }} transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }} />
+        <div className="nr-hero-type">
+          <span>AUTUMN / WINTER 26</span>
+          <h4>UN&shy;COMPRO&shy;MISED</h4>
+          <p>An independent house building garments as systems — modular, monochrome, permanent.</p>
         </div>
       </div>
-      <motion.div className="noir-screen-ticker" animate={{ x: active ? ['0%', '-50%'] : '0%' }} transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}><span>NEW FORMS / RESPONSIBLE MATERIALS / MADE IN NEW YORK / NEW FORMS / RESPONSIBLE MATERIALS / MADE IN NEW YORK /</span></motion.div>
+      <div className="nr-grid">
+        {products.map(([idx, name, price], i) => (
+          <motion.article
+            key={idx}
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.15 + i * 0.08 }}
+          >
+            <span className="nr-swatch" aria-hidden="true"><i /></span>
+            <span className="nr-index">{idx}</span>
+            <strong>{name}</strong>
+            <b>{price}</b>
+          </motion.article>
+        ))}
+      </div>
+      <div className="nr-foot"><span>FREE ATELIER RETURNS</span><span className="nr-add">ADD TO BAG <Plus /></span></div>
     </div>
   )
 }
 
-function PhoneDevice({ theme, active }: { theme: string; active: boolean }) {
+function MemoryScreen({ active }: { active: boolean }) {
+  const tiles = ['1954', '1971', '1988', '1996', '2003', '2011']
+  return (
+    <div className="app-scene app-memory">
+      <div className="app-noise" aria-hidden="true" />
+      <div className="app-status"><span>SYNTHETIC MEMORY</span><span className="mm-live"><i /> REC</span></div>
+      <div className="mm-search"><Search /><span>trace a sound, a face, a year…</span></div>
+      <div className="mm-wave" aria-hidden="true">
+        {Array.from({ length: 34 }, (_, i) => (
+          <motion.i
+            key={i}
+            animate={active ? { scaleY: [0.3, 1, 0.5, 0.9, 0.35] } : { scaleY: 0.4 }}
+            transition={{ duration: 1.6, repeat: active ? Infinity : 0, delay: i * 0.03, ease: 'easeInOut' }}
+          />
+        ))}
+      </div>
+      <div className="mm-grid">
+        {tiles.map((year, i) => (
+          <motion.span
+            key={year}
+            className={`mm-tile mm-tile-${i % 4}`}
+            initial={{ opacity: 0, scale: 0.9 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 + i * 0.05 }}
+          >
+            <b>{year}</b>
+          </motion.span>
+        ))}
+      </div>
+      <div className="mm-foot">
+        <span className="mm-play"><Play /> PLAY THREAD</span>
+        <span className="mm-count">120,418 FRAGMENTS</span>
+      </div>
+    </div>
+  )
+}
+
+function ProjectScreen({ project, active }: { project: typeof projects[number]; active: boolean }) {
+  return (
+    <div className="app-screen" data-theme={project.theme}>
+      {project.theme === 'weather' && <WeatherScreen active={active} />}
+      {project.theme === 'noir' && <NoirScreen active={active} />}
+      {project.theme === 'memory' && <MemoryScreen active={active} />}
+    </div>
+  )
+}
+
+function PhoneDevice({ project, active }: { project: typeof projects[number]; active: boolean }) {
   return (
     <div className="phone-device">
       <div className="phone-body-depth" aria-hidden="true">
@@ -1007,7 +1321,7 @@ function PhoneDevice({ theme, active }: { theme: string; active: boolean }) {
         <div className="phone-antenna antenna-top" />
         <div className="phone-antenna antenna-bottom" />
         <div className="phone-glass">
-          <div className="phone-screen"><PhoneScreen theme={theme} active={active} /></div>
+          <div className="phone-screen"><ProjectScreen project={project} active={active} /></div>
           <div className="phone-island"><div className="phone-speaker" /><div className="phone-camera"><i /></div></div>
           <div className="phone-home-indicator" />
         </div>
@@ -1018,14 +1332,14 @@ function PhoneDevice({ theme, active }: { theme: string; active: boolean }) {
   )
 }
 
-function LaptopDevice({ active }: { active: boolean }) {
+function LaptopDevice({ project, active }: { project: typeof projects[number]; active: boolean }) {
   return (
     <div className="laptop-pro">
       <div className="laptop-pro-display">
         <div className="laptop-pro-shell" />
         <div className="laptop-pro-bezel">
           <div className="laptop-pro-camera"><i /></div>
-          <div className="laptop-pro-screen"><LaptopScreen active={active} /></div>
+          <div className="laptop-pro-screen"><ProjectScreen project={project} active={active} /></div>
         </div>
         <div className="laptop-pro-lid-edge lid-edge-left" />
         <div className="laptop-pro-lid-edge lid-edge-right" />
@@ -1090,7 +1404,7 @@ function ProjectArt({ project }: { project: typeof projects[number] }) {
           className="device-tilt-stage"
           style={{ rotateX: tiltX, rotateY: tiltY, y: lift }}
         >
-          {isPhone ? <PhoneDevice theme={project.theme} active={hovered} /> : <LaptopDevice active={hovered} />}
+          {isPhone ? <PhoneDevice project={project} active={hovered} /> : <LaptopDevice project={project} active={hovered} />}
         </motion.div>
       </motion.div>
       <motion.div className="view-project" animate={{ scale: hovered ? 1 : 0, rotate: hovered ? 0 : -45 }}>
@@ -1150,8 +1464,52 @@ function Header() {
 function App() {
   const { scrollYProgress } = useScroll()
   const progress = useSpring(scrollYProgress, { stiffness: 100, damping: 25, restDelta: 0.001 })
-  const heroY = useTransform(scrollYProgress, [0, 0.2], ['0%', '25%'])
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.15], [1, 0])
+
+  // The hero is pinned; scroll scrubs the hands together, then wipes horizontally to the next panel.
+  const heroRef = useRef<HTMLElement>(null)
+  const { scrollYProgress: heroRaw } = useScroll({ target: heroRef, offset: ['start start', 'end end'] })
+  const heroProgress = useSpring(heroRaw, { stiffness: 120, damping: 30, restDelta: 0.0002 })
+  const panelX = useTransform(heroProgress, [0.52, 0.96], ['0%', '-100%'])
+  const panelScale = useTransform(heroProgress, [0.52, 0.96], [1, 0.92])
+  const chapterX = useTransform(heroProgress, [0.52, 0.96], ['100%', '0%'])
+
+  // Studio-grade eased/inertial scrolling. Everything scroll-driven (hero scrub,
+  // ScrollApple, progress) rides on top of Lenis, so nothing feels linear.
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    const lenis = new Lenis({
+      lerp: 0.09,
+      wheelMultiplier: 1,
+      touchMultiplier: 1.6,
+      smoothWheel: true,
+    })
+
+    let frame = 0
+    const raf = (time: number) => {
+      lenis.raf(time)
+      frame = requestAnimationFrame(raf)
+    }
+    frame = requestAnimationFrame(raf)
+
+    const onAnchorClick = (event: MouseEvent) => {
+      const anchor = (event.target as Element | null)?.closest('a[href^="#"]')
+      if (!anchor) return
+      const hash = anchor.getAttribute('href')
+      if (!hash || hash === '#') return
+      const target = hash === '#top' ? 0 : document.querySelector(hash)
+      if (target === null) return
+      event.preventDefault()
+      lenis.scrollTo(target as HTMLElement | number, { offset: 0, duration: 1.3 })
+    }
+    document.addEventListener('click', onAnchorClick)
+
+    return () => {
+      cancelAnimationFrame(frame)
+      document.removeEventListener('click', onAnchorClick)
+      lenis.destroy()
+    }
+  }, [])
 
   return (
     <>
@@ -1163,26 +1521,71 @@ function App() {
       <motion.div className="progress" style={{ scaleX: progress }} />
       <Header />
       <main id="top">
-        <section className="hero">
-          <HeroHands />
-          <div className="hero-coordinate">40.7128° N<br />74.0060° W</div>
-          <motion.div className="hero-copy" style={{ y: heroY, opacity: heroOpacity }}>
-            <div className="eyebrow"><span>CREATIVE DEVELOPER</span><span>BASED IN NEW YORK</span></div>
-            <h1>
-              <motion.span initial={{ y: '110%' }} animate={{ y: 0 }} transition={{ delay: 1.6, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}>BUILDING</motion.span>
-              <motion.span initial={{ y: '110%' }} animate={{ y: 0 }} transition={{ delay: 1.7, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}><em>DIGITAL</em> SYSTEMS</motion.span>
-              <motion.span initial={{ y: '110%' }} animate={{ y: 0 }} transition={{ delay: 1.8, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}>FOR THE UNREAL.</motion.span>
-            </h1>
-          </motion.div>
-          <div className="hero-bottom"><span>SCROLL TO EXPLORE</span><ArrowDown size={15} /><p>DESIGN / CODE / MOTION<br />IN ONE CONTINUOUS SYSTEM</p></div>
-          <div className="hero-systems" aria-hidden="true">
-            <span><Activity /> GPU READY</span>
-            <span><Globe2 /> LAT 40.7128</span>
-            <span><Binary /> BUILD 26.09.08</span>
+        <section className="hero" ref={heroRef}>
+          <div className="hero-stage">
+            <motion.div className="hero-panel" style={{ x: panelX, scale: panelScale }}>
+              <HeroHandsScene progress={heroProgress} />
+
+              <div className="hero-top">
+                <motion.p
+                  className="hero-intro"
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1.35, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  Independent creative developer in New York, designing and
+                  engineering expressive, high-performance work for the web.
+                </motion.p>
+                <div className="hero-corner" aria-hidden="true">
+                  <span>40.7128° N</span>
+                  <span>74.0060° W</span>
+                  <LiveClock />
+                </div>
+              </div>
+
+              <h1 className="hero-title">
+                <span className="hero-line">
+                  <motion.span initial={{ y: '115%' }} animate={{ y: 0 }} transition={{ delay: 1.55, duration: 1, ease: [0.16, 1, 0.3, 1] }}>Building digital</motion.span>
+                </span>
+                <span className="hero-line">
+                  <motion.span initial={{ y: '115%' }} animate={{ y: 0 }} transition={{ delay: 1.66, duration: 1, ease: [0.16, 1, 0.3, 1] }}>systems</motion.span>
+                </span>
+                <span className="hero-line hero-line-serif">
+                  <motion.span initial={{ y: '115%' }} animate={{ y: 0 }} transition={{ delay: 1.8, duration: 1.05, ease: [0.16, 1, 0.3, 1] }}>for the unreal.</motion.span>
+                </span>
+              </h1>
+
+              <div className="hero-foot">
+                <div className="hero-actions">
+                  <MagneticLink href="#work" className="hero-cta">
+                    <span>See the work</span>
+                    <ArrowUpRight />
+                  </MagneticLink>
+                  <span className="hero-avail"><i /> Available for new work — Sept ’26</span>
+                </div>
+                <a className="hero-scroll" href="#work" aria-label="Scroll to explore the work">
+                  <span>Scroll</span>
+                  <motion.i animate={{ scaleY: [0.15, 1, 0.15] }} transition={{ duration: 2.1, repeat: Infinity, ease: 'easeInOut' }} />
+                </a>
+              </div>
+            </motion.div>
+
+            {/* Slides in horizontally as the hero wipes away */}
+            <motion.div className="hero-chapter" style={{ x: chapterX }}>
+              <div className="chapter-head">
+                <span>The practice</span>
+                <span>New York, since 2014</span>
+              </div>
+              <div className="chapter-metrics">
+                <div><strong>10<sup>+</sup></strong><span>Years in the browser</span></div>
+                <div><strong>47</strong><span>Projects shipped</span></div>
+                <div><strong>19</strong><span>Global awards</span></div>
+                <div><strong>60</strong><span>Frames per second</span></div>
+              </div>
+              <div className="chapter-foot"><span>Selected work follows</span><ArrowDown /></div>
+            </motion.div>
           </div>
         </section>
-
-        <MetricsStrip />
 
         <section className="statement" id="about">
           <div className="section-tag"><span>01</span> / MANIFESTO</div>
@@ -1269,7 +1672,7 @@ function App() {
             <div className="dispatch-copy">
               <div className="section-tag"><span>10</span> / TRANSMISSION</div>
               <h2>OCCASIONAL<br />NOTES FROM<br /><i>THE LAB.</i></h2>
-              <p>Experiments, technical breakdowns, references, and unfinished thoughts. No growth hacks. No weekly obligation.</p>
+              <p>Experiments, technical breakdowns, references, and unfinished thoughts. No shortcuts. No weekly obligation.</p>
             </div>
             <form className="dispatch-form" onSubmit={(event) => event.preventDefault()}>
               <label htmlFor="email">EMAIL ADDRESS</label>
