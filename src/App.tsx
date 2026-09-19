@@ -1388,25 +1388,18 @@ function ProjectArt({ project }: { project: typeof projects[number] }) {
       }}
       transition={{ duration: 0.45 }}
     >
-      <div className="showcase-type" aria-hidden="true">
-        <motion.span
-          className="showcase-type-main"
-          initial={{ opacity: 0, x: '-12%', filter: 'blur(14px)' }}
-          whileInView={{ opacity: 1, x: '0%', filter: 'blur(0px)' }}
-          viewport={{ once: true, amount: 0.4 }}
-          transition={{ duration: 1.25, ease: [0.16, 1, 0.3, 1] }}
-        >
-          {project.title.replace('\n', ' ')}
-        </motion.span>
-        <span className="showcase-type-echo">{project.title.replace('\n', ' ')}</span>
-        <span className="showcase-type-discipline">{project.type.replace(' / ', '  +  ')}</span>
-      </div>
       <motion.div
         className="device-motion-stage"
-        initial={{ opacity: 0, y: isPhone ? 180 : 140, rotateX: isPhone ? -24 : 14, rotateY: isPhone ? -42 : 24, scale: 0.68 }}
+        initial={{ opacity: 0, y: 190, rotateX: isPhone ? 32 : 22, rotateY: isPhone ? -94 : -78, scale: 0.82 }}
         whileInView={{ opacity: 1, y: 0, rotateX: 0, rotateY: 0, scale: 1 }}
-        viewport={{ once: true, amount: 0.34 }}
-        transition={{ type: 'spring', stiffness: 72, damping: 17, mass: 1.05 }}
+        viewport={{ once: true, amount: 0.32 }}
+        transition={{
+          opacity: { duration: 0.55, ease: 'easeOut' },
+          rotateY: { type: 'spring', stiffness: 58, damping: 15, mass: 1.1 },
+          rotateX: { type: 'spring', stiffness: 62, damping: 16, mass: 1 },
+          y: { type: 'spring', stiffness: 66, damping: 18, mass: 1.05 },
+          scale: { type: 'spring', stiffness: 60, damping: 14, mass: 1 },
+        }}
       >
         <motion.div
           className="device-tilt-stage"
@@ -1418,28 +1411,64 @@ function ProjectArt({ project }: { project: typeof projects[number] }) {
       <motion.div className="view-project" animate={{ scale: hovered ? 1 : 0, rotate: hovered ? 0 : -45 }}>
         VIEW<br />CASE <ArrowUpRight size={15} />
       </motion.div>
-      <span className="visual-title">{project.title.replace('\n', ' / ')}</span>
     </motion.div>
   )
 }
 
+const lineReveal = {
+  hidden: { y: '115%', filter: 'blur(10px)', opacity: 0 },
+  visible: { y: '0%', filter: 'blur(0px)', opacity: 1 },
+}
+const softReveal = {
+  hidden: { opacity: 0, y: 22, filter: 'blur(9px)' },
+  visible: { opacity: 1, y: 0, filter: 'blur(0px)' },
+}
+
 function Project({ project, position }: { project: typeof projects[number], position: number }) {
+  const lines = project.title.split('\n')
   return (
     <article className={`project project-${position + 1}`}>
-      <Reveal className="project-meta">
-        <span>{project.index} / 03</span>
-        <span>{project.type}</span>
-        <span>{project.year}</span>
-      </Reveal>
-      <Reveal className="project-art-wrap"><ProjectArt project={project} /></Reveal>
-      <Reveal className="project-info">
-        <h3>{project.title.split('\n').map((line) => <span key={line}>{line}</span>)}</h3>
-        <div className="project-details">
-          <p>{project.description}</p>
-          <div className="project-outcome"><span>PLATFORM <b>{project.platform}</b></span><span>OUTCOME <b>{project.result}</b></span></div>
-          <div className="tag-row">{project.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
-        </div>
-      </Reveal>
+      <div className="project-art-wrap"><ProjectArt project={project} /></div>
+      <motion.div
+        className="project-info"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.35 }}
+      >
+        <h3>
+          {lines.map((line, i) => (
+            <span className="line-mask" key={line}>
+              <motion.span
+                className="line-inner"
+                variants={lineReveal}
+                transition={{ duration: 1.05, ease: [0.16, 1, 0.3, 1], delay: 0.06 + i * 0.1 }}
+              >
+                {line}
+              </motion.span>
+            </span>
+          ))}
+        </h3>
+        <motion.p
+          className="project-lede"
+          variants={softReveal}
+          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.24 }}
+        >
+          {project.description}
+        </motion.p>
+        <motion.a
+          className="project-repo"
+          href="https://github.com/alexrivera/example-project"
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`View ${project.title.replace('\n', ' ')} on GitHub`}
+          variants={softReveal}
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.36 }}
+        >
+          <Github size={17} strokeWidth={1.6} />
+          <span>View source</span>
+          <ArrowUpRight size={14} strokeWidth={1.6} />
+        </motion.a>
+      </motion.div>
     </article>
   )
 }
