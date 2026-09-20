@@ -1,5 +1,5 @@
-import { AnimatePresence, motion, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform } from 'framer-motion'
-import type { MotionValue } from 'framer-motion'
+import { AnimatePresence, motion, useInView, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform } from 'framer-motion'
+import type { MotionValue, Variants } from 'framer-motion'
 import gsap from 'gsap'
 import {
   ArrowUpRight,
@@ -25,7 +25,8 @@ import {
   Zap,
 } from 'lucide-react'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { ChangeEvent, CSSProperties } from 'react'
+import type { RenderedPdf } from './pdfPages'
 import Lenis from 'lenis'
 import ScrollApple from './ScrollApple'
 import heroHandLeftUrl from './assets/hero-hand-left.png'
@@ -35,6 +36,9 @@ import tojiUrl from './assets/toji.png'
 
 const SonicRing = lazy(() => import('./SonicRing'))
 const SonicExitRing = lazy(() => import('./SonicExitRing'))
+const ResearchArchive = lazy(() => import('./ResearchArchive'))
+
+const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
 
 const projects = [
   {
@@ -141,6 +145,8 @@ const researchPapers = [
     accent: '#e7b65c',
     figure: 'field',
     abstract: 'This paper proposes a visual grammar for adaptive interfaces that preserve orientation, authorship, and user agency while changing in real time. It treats adaptation as a legible spatial event rather than an invisible optimization.',
+    quote: 'An interface that adapts in secret teaches people they can no longer trust what they see.',
+    note: 'Prototype-led inquiry across fourteen adaptive layouts against a fixed control. Participants held their orientation only when each change announced itself in space and could be traced back to a cause.',
     keywords: ['ADAPTIVE UI', 'AGENCY', 'SPATIAL SYSTEMS'],
   },
   {
@@ -153,6 +159,8 @@ const researchPapers = [
     accent: '#ff64bc',
     figure: 'type',
     abstract: 'A study of kinetic typography as an information-bearing system. Controlled trials test how acceleration, interruption, and variable width affect comprehension, recall, and the felt duration of digital reading.',
+    quote: 'Type in motion should listen to the reader\u2019s tempo before it dares to set its own.',
+    note: 'Controlled trials with 212 readers measured recall and perceived duration. Motion aided comprehension only when it followed reading rhythm; imposed pacing consistently lowered both.',
     keywords: ['KINETIC TYPE', 'LEGIBILITY', 'MOTION'],
   },
   {
@@ -165,6 +173,8 @@ const researchPapers = [
     accent: '#6df7ff',
     figure: 'mesh',
     abstract: 'Instead of treating performance as a single frame-rate target, this work models a perceptual budget across motion, geometry, latency, and contrast. The result is a practical method for spending computation where people can actually perceive it.',
+    quote: 'The frame nobody notices is the cheapest frame you will ever render.',
+    note: 'Eye-tracking during real-time sessions mapped where detail was actually resolved. Reallocating budget away from unseen geometry cut GPU cost by a third with no perceived loss of fidelity.',
     keywords: ['WEBGL', 'PERCEPTION', 'PERFORMANCE'],
   },
   {
@@ -177,6 +187,8 @@ const researchPapers = [
     accent: '#ffad42',
     figure: 'archive',
     abstract: 'The searchable grid is not a neutral container. This paper explores interfaces that let oral history, ambiguity, repetition, and contradiction remain visible, offering a non-linear model for encountering cultural collections.',
+    quote: 'A search bar quietly asks memory to behave. Most of what matters refuses.',
+    note: 'Fieldwork across three community archives. Visitors dwelt longer on contradictory records than on resolved timelines, reading the friction as a sign of honesty rather than error.',
     keywords: ['ARCHIVES', 'MEMORY', 'NON-LINEAR UI'],
   },
   {
@@ -189,6 +201,8 @@ const researchPapers = [
     accent: '#b8a0ff',
     figure: 'attention',
     abstract: 'A visual framework for exposing confidence, omission, and competing machine interpretations. The system turns inference into a navigable field so people can inspect uncertainty rather than receive a single polished answer.',
+    quote: 'A confidence score hides the argument the model had with itself.',
+    note: 'Reviewers inspected model reasoning as a navigable field of competing readings. Surfacing omission and dissent let them catch failures that a single ranked output routinely concealed.',
     keywords: ['INTERPRETABILITY', 'AI', 'VISUALIZATION'],
   },
 ]
@@ -693,168 +707,392 @@ function ProcessSection() {
   )
 }
 
-function PlaygroundSection() {
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [reading, setReading] = useState(false)
-  const readerRef = useRef<HTMLDivElement>(null)
-  const closeButtonRef = useRef<HTMLButtonElement>(null)
-  const openerRef = useRef<HTMLButtonElement>(null)
-  const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
-  const activePaper = researchPapers[activeIndex]
+const drawContainer: Variants = {
+  hidden: {},
+  shown: { transition: { staggerChildren: 0.1, delayChildren: 0.08 } },
+}
+const drawStroke: Variants = {
+  hidden: { pathLength: 0, opacity: 0 },
+  shown: { pathLength: 1, opacity: 1, transition: { duration: 1, ease: [0.22, 1, 0.36, 1] } },
+}
+const drawFill: Variants = {
+  hidden: { opacity: 0 },
+  shown: { opacity: 1, transition: { duration: 0.5, ease: 'easeOut' } },
+}
+
+function ResearchFigure({ figure, reducedMotion }: { figure: string; reducedMotion: boolean }) {
+  const ref = useRef<SVGSVGElement>(null)
+  const inView = useInView(ref, { once: true, margin: '-12% 0px -12% 0px' })
+  const initial = reducedMotion ? 'shown' : 'hidden'
+  const animate = reducedMotion || inView ? 'shown' : 'hidden'
+
+  return (
+    <motion.svg
+      ref={ref}
+      className="leaf-figure"
+      viewBox="0 0 120 120"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.4}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      variants={drawContainer}
+      initial={initial}
+      animate={animate}
+    >
+      {figure === 'field' ? (
+        <>
+          <motion.rect variants={drawStroke} x={14} y={18} width={66} height={66} rx={7} />
+          <motion.rect variants={drawStroke} x={30} y={32} width={66} height={66} rx={7} />
+          <motion.rect variants={drawStroke} x={44} y={46} width={62} height={62} rx={7} opacity={0.5} />
+          <motion.circle variants={drawFill} cx={14} cy={18} r={3.4} fill="currentColor" stroke="none" />
+        </>
+      ) : figure === 'type' ? (
+        <>
+          <motion.line variants={drawStroke} x1={16} y1={30} x2={96} y2={30} />
+          <motion.line variants={drawStroke} x1={16} y1={48} x2={70} y2={48} />
+          <motion.line variants={drawStroke} x1={16} y1={66} x2={104} y2={66} />
+          <motion.line variants={drawStroke} x1={16} y1={84} x2={58} y2={84} />
+          <motion.path variants={drawStroke} d="M12 60 C 34 26, 52 96, 74 60 S 104 34, 110 58" opacity={0.55} />
+        </>
+      ) : figure === 'mesh' ? (
+        <>
+          <motion.path variants={drawStroke} d="M14 92 L104 92 L88 32 L34 32 Z" />
+          <motion.line variants={drawStroke} x1={34} y1={32} x2={62} y2={92} />
+          <motion.line variants={drawStroke} x1={88} y1={32} x2={62} y2={92} />
+          <motion.line variants={drawStroke} x1={61} y1={32} x2={38} y2={92} opacity={0.6} />
+          <motion.line variants={drawStroke} x1={75} y1={32} x2={86} y2={92} opacity={0.6} />
+          <motion.line variants={drawStroke} x1={48} y1={62} x2={96} y2={62} opacity={0.4} />
+        </>
+      ) : figure === 'archive' ? (
+        <>
+          <g transform="rotate(-13 52 58)"><motion.rect variants={drawStroke} x={26} y={28} width={44} height={58} rx={3} /></g>
+          <g transform="rotate(9 70 64)"><motion.rect variants={drawStroke} x={48} y={34} width={44} height={58} rx={3} opacity={0.78} /></g>
+          <g transform="rotate(-4 58 74)"><motion.rect variants={drawStroke} x={38} y={48} width={44} height={58} rx={3} opacity={0.55} /></g>
+        </>
+      ) : (
+        <>
+          <motion.line variants={drawStroke} x1={44} y1={64} x2={16} y2={30} />
+          <motion.line variants={drawStroke} x1={44} y1={64} x2={22} y2={92} />
+          <motion.line variants={drawStroke} x1={44} y1={64} x2={70} y2={100} />
+          <motion.line variants={drawStroke} x1={44} y1={64} x2={98} y2={40} opacity={0.55} />
+          <motion.line variants={drawStroke} x1={44} y1={64} x2={104} y2={78} opacity={0.55} />
+          <motion.circle variants={drawFill} cx={44} cy={64} r={4} fill="currentColor" stroke="none" />
+          <motion.circle variants={drawStroke} cx={98} cy={40} r={6} opacity={0.7} />
+          <motion.circle variants={drawFill} cx={70} cy={100} r={2.6} fill="currentColor" stroke="none" opacity={0.7} />
+        </>
+      )}
+    </motion.svg>
+  )
+}
+
+function ResearchLeaf({ paper, index, reducedMotion, onActive }: {
+  paper: (typeof researchPapers)[number]
+  index: number
+  reducedMotion: boolean
+  onActive: (index: number) => void
+}) {
+  const ref = useRef<HTMLElement>(null)
+  const inView = useInView(ref, { margin: '-45% 0px -45% 0px' })
 
   useEffect(() => {
-    if (!reading) return
+    if (inView) onActive(index)
+  }, [inView, index, onActive])
 
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    closeButtonRef.current?.focus()
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] })
+  const smooth = useSpring(scrollYProgress, { stiffness: 90, damping: 30, mass: 0.4, restDelta: 0.0004 })
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setReading(false)
-        return
-      }
+  const opacity = useTransform(smooth, [0, 0.18, 0.36, 0.64, 0.82, 1], [0.12, 0.5, 1, 1, 0.5, 0.12])
+  const y = useTransform(smooth, [0, 0.36, 0.64, 1], [96, 0, 0, -96])
+  const rotateX = useTransform(smooth, [0, 0.36, 0.64, 1], [11, 0, 0, -11])
+  const scale = useTransform(smooth, [0, 0.36, 0.64, 1], [0.92, 1, 1, 0.92])
+  const blur = useTransform(smooth, [0, 0.3, 0.7, 1], [5, 0, 0, 5])
+  const filter = useTransform(blur, (value) => `blur(${value}px)`)
 
-      if (event.key !== 'Tab' || !readerRef.current) return
-      const focusable = Array.from(readerRef.current.querySelectorAll<HTMLElement>('button, a[href], [tabindex]:not([tabindex="-1"])'))
-      const first = focusable[0]
-      const last = focusable.at(-1)
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault()
-        last?.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault()
-        first?.focus()
-      }
+  const leafStyle = (reducedMotion
+    ? { '--leaf-accent': paper.accent }
+    : { '--leaf-accent': paper.accent, opacity, y, rotateX, scale, filter }) as unknown as CSSProperties
+
+  return (
+    <motion.article ref={ref} id={`research-entry-${index}`} className="research-leaf" style={leafStyle}>
+      <div className="leaf-page leaf-page-left">
+        <header className="leaf-folio">
+          <span>{paper.id}</span>
+          <span>{paper.status}</span>
+        </header>
+        <ResearchFigure figure={paper.figure} reducedMotion={reducedMotion} />
+        <h3 className="leaf-title">{paper.title}</h3>
+        <p className="leaf-subtitle">{paper.subtitle}</p>
+        <footer className="leaf-field">
+          <span>{paper.field}</span>
+          <span>{paper.year}</span>
+        </footer>
+      </div>
+      <div className="leaf-page leaf-page-right">
+        <span className="leaf-pageno">P. {String(index + 1).padStart(2, '0')}</span>
+        <div className="leaf-abstract">
+          <span className="leaf-label">Abstract</span>
+          <p><span className="leaf-dropcap">{paper.abstract.charAt(0)}</span>{paper.abstract.slice(1)}</p>
+        </div>
+        <blockquote className="leaf-quote">{paper.quote}</blockquote>
+        <div className="leaf-note">
+          <span className="leaf-label">Research note</span>
+          <p>{paper.note}</p>
+        </div>
+        <ul className="leaf-keywords">
+          {paper.keywords.map((keyword) => <li key={keyword}>{keyword}</li>)}
+        </ul>
+      </div>
+    </motion.article>
+  )
+}
+
+function ReducedResearch() {
+  const [activeIndex, setActiveIndex] = useState(0)
+  const activePaper = researchPapers[activeIndex]
+  return (
+    <div className="reading-room">
+      <aside className="reading-ledger">
+        <div className="ledger-card" style={{ '--paper-accent': activePaper.accent } as CSSProperties}>
+          <div className="ledger-head">
+            <span className="ledger-tag">NOW READING</span>
+            <div className="ledger-folio">
+              <strong>{String(activeIndex + 1).padStart(2, '0')}</strong>
+              <span>/ {String(researchPapers.length).padStart(2, '0')}</span>
+            </div>
+          </div>
+          <nav className="ledger-index" aria-label="Research papers">
+            {researchPapers.map((paper, index) => (
+              <a
+                key={paper.id}
+                href={`#research-entry-${index}`}
+                className={`ledger-row${activeIndex === index ? ' is-active' : ''}`}
+                aria-current={activeIndex === index ? 'true' : undefined}
+                style={{ '--row-accent': paper.accent } as CSSProperties}
+              >
+                <span className="ledger-vol">{String(index + 1).padStart(2, '0')}</span>
+                <span className="ledger-titles">
+                  <strong>{paper.title}</strong>
+                  <small>{paper.field}</small>
+                </span>
+                <span className="ledger-year">{paper.year}</span>
+              </a>
+            ))}
+          </nav>
+          <div className="ledger-foot">
+            <span>ARX / OPEN SHELF</span>
+            <span>{researchPapers.length} VOLUMES</span>
+          </div>
+        </div>
+      </aside>
+      <div className="reading-stream">
+        {researchPapers.map((paper, index) => (
+          <ResearchLeaf key={paper.id} paper={paper} index={index} reducedMotion onActive={setActiveIndex} />
+        ))}
+        <div className="stream-endnote">
+          <span>END OF CURRENT SHELF</span>
+          <p>New papers are added as prototypes mature. Preprint requests and correspondence are welcome.</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PlaygroundSection() {
+  // The reading room is scroll-driven (not autoplaying), so it's safe to render
+  // the WebGL glass scene for everyone. Reduced-motion users get a calmer idle
+  // float inside the scene rather than a separate flat fallback.
+  return <ArchiveResearch />
+}
+
+const ARCHIVE_ACCENTS = ['#e7b65c', '#ff64bc', '#6df7ff', '#ffad42', '#b8a0ff']
+
+function ArchiveResearch() {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [activeIndex, setActiveIndex] = useState(0)
+  const activeRef = useRef(0)
+  const [pdf, setPdf] = useState<RenderedPdf | null>(null)
+  const [pdfStatus, setPdfStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+
+  // In PDF mode the corridor is the uploaded pages; otherwise it's the samples.
+  const isPdf = !!pdf && pdf.pages.length > 0
+  const slideCount = isPdf ? pdf!.pages.length : researchPapers.length
+  const lastIndex = Math.max(0, slideCount - 1)
+  const activePaper = researchPapers[Math.min(activeIndex, researchPapers.length - 1)]
+  const accentAt = (index: number) =>
+    isPdf ? ARCHIVE_ACCENTS[index % ARCHIVE_ACCENTS.length] : researchPapers[index].accent
+
+  const { scrollYProgress } = useScroll({ target: scrollRef, offset: ['start start', 'end end'] })
+  const accent = useMotionValue(researchPapers[0].accent)
+  const meterScale = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.35 })
+
+  useMotionValueEvent(scrollYProgress, 'change', (value) => {
+    const next = Math.round(clamp01(value) * lastIndex)
+    if (next !== activeRef.current) {
+      activeRef.current = next
+      accent.set(accentAt(next))
+      setActiveIndex(next)
     }
+  })
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.body.style.overflow = previousOverflow
-      window.removeEventListener('keydown', handleKeyDown)
-      openerRef.current?.focus()
+  async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = '' // allow re-selecting the same file
+    if (!file) return
+    setPdfStatus('loading')
+    try {
+      const { renderPdfToCanvases } = await import('./pdfPages')
+      const rendered = await renderPdfToCanvases(file)
+      if (!rendered.pages.length) throw new Error('No pages rendered')
+      setPdf(rendered)
+      setPdfStatus('idle')
+      setActiveIndex(0)
+      activeRef.current = 0
+      accent.set(ARCHIVE_ACCENTS[0])
+    } catch (err) {
+      console.error('Failed to render PDF', err)
+      setPdfStatus('error')
     }
-  }, [reading])
-
-  const openPaper = (opener: HTMLButtonElement) => {
-    openerRef.current = opener
-    setReading(true)
   }
 
-  const moveTabFocus = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
-    const keys = ['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft', 'Home', 'End']
-    if (!keys.includes(event.key)) return
-    event.preventDefault()
-    const backwards = event.key === 'ArrowUp' || event.key === 'ArrowLeft'
-    const nextIndex = event.key === 'Home'
-      ? 0
-      : event.key === 'End'
-        ? researchPapers.length - 1
-        : (index + (backwards ? -1 : 1) + researchPapers.length) % researchPapers.length
-    setActiveIndex(nextIndex)
-    tabRefs.current[nextIndex]?.focus()
+  function resetToSamples() {
+    setPdf(null)
+    setPdfStatus('idle')
+    setActiveIndex(0)
+    activeRef.current = 0
+    accent.set(researchPapers[0].accent)
   }
 
   return (
     <section className="playground" id="research">
-      <div className="research-atmosphere" aria-hidden="true"><i /><i /><i /></div>
-      <div className="research-title-row">
-        <div>
-          <div className="section-tag"><span>05</span> / WRITTEN INQUIRY</div>
-          <h2>THE READING<br /><i>ROOM.</i></h2>
-        </div>
-        <p>An evolving shelf of arguments on computation, perception, and culture. Each paper begins as a marginal note, becomes a prototype, and returns here as a text.</p>
-      </div>
-      <div className="research-library">
-        <div className="research-shelf" role="tablist" aria-label="Research paper index">
-          <span className="shelf-caption">SELECTED PAPERS / VOL. I—V</span>
-          {researchPapers.map((paper, index) => (
-            <button
-              key={paper.id}
-              ref={(element) => { tabRefs.current[index] = element }}
-              id={`paper-tab-${index}`}
-              type="button"
-              role="tab"
-              className={activeIndex === index ? 'is-active' : ''}
-              onClick={() => setActiveIndex(index)}
-              onKeyDown={(event) => moveTabFocus(event, index)}
-              aria-selected={activeIndex === index}
-              aria-controls="research-paper-panel"
-              tabIndex={activeIndex === index ? 0 : -1}
-              style={{ '--spine-accent': paper.accent } as CSSProperties}
-            >
-              <span>VOL. {String(index + 1).padStart(2, '0')}</span>
-              <strong>{paper.title}</strong>
-              <small>{paper.year}</small>
-            </button>
-          ))}
-          <div className="shelf-edge" aria-hidden="true" />
-        </div>
-        <div className="reading-desk" style={{ '--paper-accent': activePaper.accent } as CSSProperties}>
-          <div className="desk-notes" aria-hidden="true">
-            <span>archive copy</span>
-            <p>“To read is to enter<br />another system.”</p>
+      {/* Tall scroll track; the stage inside pins while papers turn in the light */}
+      <div className="archive-scroll" ref={scrollRef}>
+        {Array.from({ length: slideCount }).map((_, index) => (
+          <span
+            key={index}
+            id={`research-entry-${index}`}
+            className="archive-marker"
+            aria-hidden="true"
+            style={{ top: `${lastIndex ? (index / lastIndex) * 80 : 0}%` }}
+          />
+        ))}
+
+        <div className="archive-stage">
+          <div className="research-atmosphere" aria-hidden="true">
+            <i /><i />
+            <motion.span className="research-lamp" style={{ backgroundColor: accent }} />
           </div>
-          <AnimatePresence mode="wait">
-            <motion.button
-              key={activePaper.id}
-              id="research-paper-panel"
-              className="open-manuscript"
+
+          <Suspense fallback={null}>
+            <ResearchArchive progress={scrollYProgress} papers={researchPapers} accent={accent} pdf={pdf} />
+          </Suspense>
+
+          <div className="archive-head">
+            <div className="section-tag"><span>05</span> / WRITTEN INQUIRY</div>
+            <h2>THE READING <i>ROOM.</i></h2>
+          </div>
+
+          <div className="archive-upload">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={handleUpload}
+              hidden
+            />
+            <button
               type="button"
-              role="tabpanel"
-              aria-labelledby={`paper-tab-${activeIndex}`}
-              onClick={(event) => openPaper(event.currentTarget)}
-              initial={{ opacity: 0, rotateY: -12, y: 24 }}
-              animate={{ opacity: 1, rotateY: 0, y: 0 }}
-              exit={{ opacity: 0, rotateY: 12, y: -16 }}
-              transition={{ duration: .75, ease: [0.16, 1, 0.3, 1] }}
+              className="archive-upload-btn"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={pdfStatus === 'loading'}
             >
-              <span className="manuscript-leaf manuscript-left">
-                <span className="manuscript-folio">{activePaper.id} / {activePaper.status}</span>
-                <span className="manuscript-ornament" aria-hidden="true"><i /><b /><i /></span>
-                <strong>{activePaper.title}</strong>
-                <em>{activePaper.subtitle}</em>
-                <span className="manuscript-field">{activePaper.field} / {activePaper.year}</span>
-              </span>
-              <span className="manuscript-leaf manuscript-right">
-                <span className="manuscript-page">{String(activeIndex + 1).padStart(2, '0')}</span>
-                <span className="manuscript-dropcap">{activePaper.abstract.charAt(0)}</span>
-                <span className="manuscript-abstract">{activePaper.abstract.slice(1)}</span>
-                <span className="manuscript-rule" />
-                <span className="manuscript-action">Open paper <ArrowUpRight /></span>
-                <span className="manuscript-marginalia">working paper<br />private circulation</span>
-              </span>
-            </motion.button>
-          </AnimatePresence>
-          <div className="desk-pencil" aria-hidden="true" />
+              <Plus size={14} />
+              {pdfStatus === 'loading' ? 'RENDERING…' : isPdf ? 'REPLACE PDF' : 'UPLOAD A PDF'}
+            </button>
+            {isPdf && (
+              <button type="button" className="archive-upload-reset" onClick={resetToSamples}>
+                RESET
+              </button>
+            )}
+            {isPdf && <span className="archive-upload-name" title={pdf!.name}>{pdf!.name}.pdf</span>}
+            {pdfStatus === 'error' && <span className="archive-upload-error">Couldn't read that PDF.</span>}
+          </div>
+
+          <nav className="archive-ledger" aria-label={isPdf ? 'PDF pages' : 'Research papers'}>
+            <span className="archive-ledger-tag">{isPdf ? 'UPLOADED PAGES' : 'SELECTED PAPERS'}</span>
+            {Array.from({ length: slideCount }).map((_, index) => (
+              <a
+                key={index}
+                href={`#research-entry-${index}`}
+                className={`archive-ledger-row${activeIndex === index ? ' is-active' : ''}`}
+                aria-current={activeIndex === index ? 'true' : undefined}
+                style={{ '--row-accent': accentAt(index) } as CSSProperties}
+              >
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <strong>{isPdf ? `Page ${index + 1}` : researchPapers[index].title}</strong>
+              </a>
+            ))}
+          </nav>
+
+          <div className="archive-meter" aria-hidden="true"><motion.i style={{ scaleX: meterScale }} /></div>
+
+          <div className="archive-reader" style={{ '--paper-accent': accentAt(activeIndex) } as CSSProperties}>
+            <AnimatePresence mode="wait">
+              {isPdf ? (
+                <motion.div
+                  key={`pdf-${activeIndex}`}
+                  className="archive-reader-inner"
+                  initial={{ opacity: 0, y: 22 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -16 }}
+                  transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <div className="archive-reader-meta">
+                    <span>UPLOAD</span>
+                    <span>PDF</span>
+                    <span>PAGE {activeIndex + 1} / {slideCount}</span>
+                  </div>
+                  <h3 className="archive-reader-title">{pdf!.name}</h3>
+                  <p className="archive-reader-sub">Your document, cast onto glass. Scroll to move through the pages.</p>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={activePaper.id}
+                  className="archive-reader-inner"
+                  initial={{ opacity: 0, y: 22 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -16 }}
+                  transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <div className="archive-reader-meta">
+                    <span>{activePaper.id}</span>
+                    <span>{activePaper.field}</span>
+                    <span>{activePaper.status} / {activePaper.year}</span>
+                  </div>
+                  <h3 className="archive-reader-title">{activePaper.title}</h3>
+                  <p className="archive-reader-sub">{activePaper.subtitle}</p>
+                  <div className="archive-reader-body">
+                    <p><span className="archive-dropcap">{activePaper.abstract.charAt(0)}</span>{activePaper.abstract.slice(1)}</p>
+                    <blockquote>{activePaper.quote}</blockquote>
+                  </div>
+                  <ul className="archive-reader-keywords">
+                    {activePaper.keywords.map((keyword) => <li key={keyword}>{keyword}</li>)}
+                  </ul>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <div className="archive-reader-nav">
+              <a href={`#research-entry-${Math.max(0, activeIndex - 1)}`} aria-label="Previous" className={activeIndex === 0 ? 'is-disabled' : ''}><ChevronLeft size={16} /></a>
+              <span>{String(activeIndex + 1).padStart(2, '0')} / {String(slideCount).padStart(2, '0')}</span>
+              <a href={`#research-entry-${Math.min(lastIndex, activeIndex + 1)}`} aria-label="Next" className={activeIndex === lastIndex ? 'is-disabled' : ''}><ChevronRight size={16} /></a>
+            </div>
+          </div>
+
+          <div className="archive-scrollcue" aria-hidden="true"><span>SCROLL TO TURN THE PAGES</span></div>
         </div>
       </div>
-      <AnimatePresence>
-        {reading ? (
-          <motion.div ref={readerRef} className="paper-reader" role="dialog" aria-modal="true" aria-labelledby="paper-reader-title" aria-describedby="paper-reader-subtitle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => { if (event.target === event.currentTarget) setReading(false) }}>
-            <motion.div className="paper-reader-sheet" initial={{ y: '100%', rotateX: -8 }} animate={{ y: 0, rotateX: 0 }} exit={{ y: '100%', rotateX: 8 }} transition={{ duration: .9, ease: [0.76, 0, 0.24, 1] }}>
-              <button type="button" ref={closeButtonRef} className="paper-reader-close" onClick={() => setReading(false)}>Close paper <span aria-hidden="true">×</span></button>
-              <div className="paper-reader-meta"><span>{activePaper.id}</span><span>{activePaper.field}</span><span>{activePaper.year}</span></div>
-              <div className="paper-reader-heading">
-                <span>{String(activeIndex + 1).padStart(2, '0')}</span>
-                <h2 id="paper-reader-title">{activePaper.title}</h2>
-                <p id="paper-reader-subtitle">{activePaper.subtitle}</p>
-              </div>
-              <div className="paper-reader-body">
-                <div><span>Abstract</span><p>{activePaper.abstract}</p></div>
-                <blockquote>“The interface is not a container for the argument. It is part of the argument.”</blockquote>
-                <div><span>Research position</span><p>This work combines prototype-led inquiry, comparative observation, and visual systems analysis. The paper remains open: each implementation is treated as evidence, not illustration.</p></div>
-              </div>
-              <div className="paper-reader-keywords">{activePaper.keywords.map((keyword) => <span key={keyword}>{keyword}</span>)}</div>
-              <div className="paper-reader-nav">
-                <button type="button" onClick={() => setActiveIndex((activeIndex + researchPapers.length - 1) % researchPapers.length)}>Previous paper</button>
-                <span>{String(activeIndex + 1).padStart(2, '0')} / {String(researchPapers.length).padStart(2, '0')}</span>
-                <button type="button" onClick={() => setActiveIndex((activeIndex + 1) % researchPapers.length)}>Next paper</button>
-              </div>
-            </motion.div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
     </section>
   )
 }
