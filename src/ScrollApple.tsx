@@ -74,6 +74,8 @@ export default function ScrollApple() {
                 key={`${cx}-${cy}`}
                 cx={cx}
                 cy={cy}
+                r={0}
+                initial={{ r: 0 }}
                 animate={{ r: biteStage > index ? BITE_SIZES[index] : 0 }}
                 transition={biteTransition}
                 fill="black"
@@ -83,7 +85,7 @@ export default function ScrollApple() {
         </defs>
 
         <g filter="url(#apple-relief)">
-          <motion.g animate={{ opacity: biteStage >= 4 ? 1 : 0 }} transition={biteTransition}>
+          <motion.g initial={{ opacity: 0 }} animate={{ opacity: biteStage >= 4 ? 1 : 0 }} transition={biteTransition}>
             <path d="M55 36C59 32 64 32 67 36C71 51 68 81 73 93C67 98 54 98 48 93C53 79 50 51 55 36Z" fill="url(#core-metal)" />
             <ellipse cx="56" cy="61" rx="2.2" ry="4.5" fill="#24282a" transform="rotate(-18 56 61)" />
             <ellipse cx="65" cy="69" rx="2.2" ry="4.5" fill="#24282a" transform="rotate(18 65 69)" />

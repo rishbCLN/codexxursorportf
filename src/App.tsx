@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, useInView, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform } from 'framer-motion'
+import { AnimatePresence, motion, useInView, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform, useVelocity } from 'framer-motion'
 import type { MotionValue, Variants } from 'framer-motion'
 import gsap from 'gsap'
 import {
@@ -25,8 +25,10 @@ import {
   Zap,
 } from 'lucide-react'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import SceneBoundary from './SceneBoundary'
 import type { ChangeEvent, CSSProperties } from 'react'
 import type { RenderedPdf } from './pdfPages'
+import { TOOLKIT_CLUSTERS, TOOLKIT_CLUSTER_OFFSET } from './toolkitData'
 import Lenis from 'lenis'
 import ScrollApple from './ScrollApple'
 import heroHandLeftUrl from './assets/hero-hand-left.png'
@@ -37,6 +39,7 @@ import tojiUrl from './assets/toji.png'
 const SonicRing = lazy(() => import('./SonicRing'))
 const SonicExitRing = lazy(() => import('./SonicExitRing'))
 const ResearchArchive = lazy(() => import('./ResearchArchive'))
+const ToolkitCortex = lazy(() => import('./ToolkitCortex'))
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
 
@@ -822,6 +825,9 @@ function PlaygroundSection() {
 
 const ARCHIVE_ACCENTS = ['#e7b65c', '#ff64bc', '#6df7ff', '#ffad42', '#b8a0ff']
 
+// Fraction of the pinned track spent reading; the rest drives the horizontal exit.
+const READING_SPAN = 0.8
+
 function ArchiveResearch() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -839,10 +845,47 @@ function ArchiveResearch() {
     isPdf ? ARCHIVE_ACCENTS[index % ARCHIVE_ACCENTS.length] : researchPapers[index].accent
 
   const { scrollYProgress } = useScroll({ target: scrollRef, offset: ['start start', 'end end'] })
+  const prefersReduced = useReducedMotion()
   const accent = useMotionValue(researchPapers[0].accent)
-  const meterScale = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.35 })
 
-  useMotionValueEvent(scrollYProgress, 'change', (value) => {
+  // The pinned track runs in two phases. The first READING_SPAN drives the reading
+  // room itself — WebGL focus, the meter, the active paper. The remainder is the
+  // exit: the whole reading-room screen is dragged left (led by the last glass
+  // slab, which GlassSlab already throws leftward) while the book's binding — the
+  // transition joint — is pulled in from the right. Only once the binding lands
+  // centre does the pin release and normal vertical scroll carry on into 04.
+  const reading = useTransform(scrollYProgress, [0, READING_SPAN], [0, 1], { clamp: true })
+  const exitRaw = useTransform(scrollYProgress, [READING_SPAN, 1], [0, 1], { clamp: true })
+  const exitSmooth = useSpring(exitRaw, { stiffness: 90, damping: 28, mass: 0.5, restDelta: 0.0004 })
+  // Reduced motion scrubs the pan straight from scroll (no spring lag); it's a
+  // transition the user is physically dragging, not autoplaying motion.
+  const exit = prefersReduced ? exitRaw : exitSmooth
+  const meterScale = useSpring(reading, { stiffness: 120, damping: 30, mass: 0.35 })
+
+  // Scroll velocity gives the drag its weight: a fast flick throws the room a few
+  // vw further and flares the seam. Suppressed under reduced motion.
+  const velocity = useVelocity(scrollYProgress)
+  const vel = useSpring(velocity, { stiffness: 170, damping: 44, mass: 0.4 })
+
+  // The rail carries the room (panel 0) and the binding (panel 1); the exit pans
+  // it one viewport left, with a little velocity lead in the travel direction.
+  const baseVW = useTransform(exit, [0, 1], [0, -100], { clamp: true })
+  const leadVW = useTransform(vel, [-2.5, 2.5], [4, -4], { clamp: true })
+  const railX = useTransform<number, string>([baseVW, leadVW], ([b, l]: number[]) => `${b + (prefersReduced ? 0 : l)}vw`)
+
+  // The room recedes + dims as it's dragged off; the binding settles as it lands.
+  const roomDim = useTransform(exit, [0, 0.85], [1, 0.4], { clamp: true })
+  const roomScale = useTransform(exit, [0, 1], [1, 0.965], { clamp: true })
+  const jointRise = useTransform(exit, [0.1, 0.9], [64, 0], { clamp: true })
+  const jointFade = useTransform(exit, [0.06, 0.55], [0, 1], { clamp: true })
+  // The seam is gated off during reading, then rides scroll velocity as it sweeps.
+  const seamOpacity = useTransform<number, number>([exit, vel], ([e, v]: number[]) => {
+    const gate = clamp01((e - 0.02) / 0.12)
+    const glow = prefersReduced ? 0.5 : 0.5 + Math.min(0.5, Math.abs(v) / 2.4)
+    return gate * glow
+  })
+
+  useMotionValueEvent(reading, 'change', (value) => {
     const next = Math.round(clamp01(value) * lastIndex)
     if (next !== activeRef.current) {
       activeRef.current = next
@@ -889,19 +932,23 @@ function ArchiveResearch() {
             id={`research-entry-${index}`}
             className="archive-marker"
             aria-hidden="true"
-            style={{ top: `${lastIndex ? (index / lastIndex) * 80 : 0}%` }}
+            style={{ top: `${lastIndex ? (index / lastIndex) * 80 * READING_SPAN : 0}%` }}
           />
         ))}
 
         <div className="archive-stage">
+         <motion.div className="archive-rail" style={{ x: railX }}>
+          <motion.div className="archive-room" style={{ opacity: roomDim, scale: roomScale }}>
           <div className="research-atmosphere" aria-hidden="true">
             <i /><i />
             <motion.span className="research-lamp" style={{ backgroundColor: accent }} />
           </div>
 
-          <Suspense fallback={null}>
-            <ResearchArchive progress={scrollYProgress} papers={researchPapers} accent={accent} pdf={pdf} />
-          </Suspense>
+          <SceneBoundary label="ResearchArchive">
+            <Suspense fallback={null}>
+              <ResearchArchive progress={reading} papers={researchPapers} accent={accent} pdf={pdf} />
+            </Suspense>
+          </SceneBoundary>
 
           <div className="archive-head">
             <div className="section-tag"><span>03</span> / WRITTEN INQUIRY</div>
@@ -1004,6 +1051,24 @@ function ArchiveResearch() {
           </div>
 
           <div className="archive-scrollcue" aria-hidden="true"><span>SCROLL TO TURN THE PAGES</span></div>
+          </motion.div>
+
+          {/* Panel 1 — the binding, i.e. the transition joint. Not a titled card
+              but the book's spine: as the room is dragged left this is pulled in
+              from the right and lands centre. Connective glue (warm archive →
+              steel of what follows); only once mounted does vertical scroll
+              resume. Its ground matches section 04 so the hand-off is seamless. */}
+          <div className="archive-next" aria-hidden="true">
+            <motion.div className="archive-joint" style={{ y: jointRise, opacity: jointFade }}>
+              <span className="archive-joint-stitch" />
+              <span className="archive-joint-tick">03</span>
+              <span className="archive-joint-tick archive-joint-tick--end">04</span>
+            </motion.div>
+          </div>
+
+          {/* The luminous seam that sweeps on the panel boundary as the rail moves */}
+          <motion.span className="archive-seam" style={{ opacity: seamOpacity }} aria-hidden="true" />
+         </motion.div>
         </div>
       </div>
     </section>
@@ -1043,83 +1108,104 @@ function PrinciplesSection() {
 }
 
 function TechnologySection() {
-  const [activeTech, setActiveTech] = useState('THREE.JS')
-  const activeIndex = technologies.indexOf(activeTech)
-  const groups = [
-    { name: 'INTERFACE', code: 'UI', items: technologies.slice(0, 4) },
-    { name: 'MOTION', code: 'MX', items: technologies.slice(4, 8) },
-    { name: 'SYSTEMS', code: 'SY', items: technologies.slice(8, 12) },
-    { name: 'EXPERIMENT', code: 'EX', items: technologies.slice(12, 16) },
-  ]
+  // Scroll advances a continuous focus across the four lobes; hover focuses a
+  // single tool. Both feed the WebGL "cortex" through MotionValues so the glass
+  // stays in lockstep with the crisp DOM text on top.
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [activeCluster, setActiveCluster] = useState(0)
+  const clusterRef = useRef(0)
+  const [activeTech, setActiveTech] = useState(TOOLKIT_CLUSTERS[0].items[0].name)
+  const activeNode = useMotionValue(0)
+  const accent = useMotionValue(TOOLKIT_CLUSTERS[0].accent)
+
+  const last = TOOLKIT_CLUSTERS.length - 1
+  const { scrollYProgress } = useScroll({ target: scrollRef, offset: ['start start', 'end end'] })
+  const meterScale = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.35 })
+
+  useMotionValueEvent(scrollYProgress, 'change', (value) => {
+    const next = Math.round(clamp01(value) * last)
+    if (next !== clusterRef.current) {
+      clusterRef.current = next
+      setActiveCluster(next)
+      accent.set(TOOLKIT_CLUSTERS[next].accent)
+      setActiveTech(TOOLKIT_CLUSTERS[next].items[0].name)
+      activeNode.set(TOOLKIT_CLUSTER_OFFSET[next])
+    }
+  })
+
+  function focusTool(cluster: number, local: number, name: string) {
+    setActiveTech(name)
+    activeNode.set(TOOLKIT_CLUSTER_OFFSET[cluster] + local)
+    accent.set(TOOLKIT_CLUSTERS[cluster].accent)
+  }
+
+  const cluster = TOOLKIT_CLUSTERS[activeCluster]
 
   return (
-    <section className="technology-section">
-      <div className="tech-head">
-        <div>
-          <div className="section-tag"><span>05</span> / TOOLKIT</div>
-          <h2>TOOLS, CHOSEN<br /><i>WITH INTENTION.</i></h2>
-        </div>
-        <div className="tech-head-meta">
-          <span>AN EVOLVING PRACTICE</span>
-          <p>The stack is never the story. These are simply the materials I trust to make digital work feel precise, expressive, and effortless.</p>
-        </div>
-      </div>
-      <div className="tech-gallery">
-        <div className="tech-canvas" aria-hidden="true">
-          <div className="tech-canvas-number">{String(activeIndex + 1).padStart(2, '0')}</div>
-          <AnimatePresence mode="wait">
-            <motion.div
-              className="tech-canvas-word"
-              key={activeTech}
-              initial={{ opacity: 0, y: 30, rotate: 2, filter: 'blur(10px)' }}
-              animate={{ opacity: 1, y: 0, rotate: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -25, rotate: -2, filter: 'blur(10px)' }}
-              transition={{ duration: .65, ease: [0.22, 1, 0.36, 1] }}
-            >
-              {activeTech}
-            </motion.div>
-          </AnimatePresence>
-          <motion.div className="tech-sculpture" animate={{ rotate: activeIndex * 22 }} transition={{ duration: 1.1, ease: [0.22,1,0.36,1] }}>
-            <i /><i /><i /><b />
-          </motion.div>
-          <div className="tech-canvas-caption"><span>DIGITAL MATERIAL / {String(activeIndex + 1).padStart(2, '0')}</span><span>FORM FOLLOWS PURPOSE</span></div>
-          <motion.div className="tech-light" animate={{ x: ['-20%', '25%', '-20%'], y: ['-5%', '10%', '-5%'] }} transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }} />
-        </div>
-        <div className="tech-list">
-          <div className="tech-list-head">
-            <span>SKILL INDEX / 16</span>
-            <span>HOVER TO INSPECT</span>
+    <section className="technology-section" id="toolkit">
+      <div className="toolkit-scroll" ref={scrollRef}>
+        {TOOLKIT_CLUSTERS.map((_, index) => (
+          <span
+            key={index}
+            id={`toolkit-lobe-${index}`}
+            className="toolkit-marker"
+            aria-hidden="true"
+            style={{ top: `${last ? (index / last) * 80 : 0}%` }}
+          />
+        ))}
+
+        <div className="toolkit-stage">
+          <SceneBoundary label="ToolkitCortex">
+            <Suspense fallback={null}>
+              <ToolkitCortex progress={scrollYProgress} active={activeNode} accent={accent} />
+            </Suspense>
+          </SceneBoundary>
+
+          <div className="toolkit-meter" aria-hidden="true"><motion.i style={{ scaleX: meterScale }} /></div>
+
+          <div className="toolkit-head">
+            <div className="section-tag"><span>05</span> / TOOLKIT</div>
+            <h2>TOOLS, CHOSEN<br /><i>WITH INTENTION.</i></h2>
           </div>
-          {groups.map((group, groupIndex) => (
-            <motion.div className="tech-group" key={group.name} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: groupIndex * .08 }}>
-              <div className="tech-group-label">
-                <span>{String(groupIndex + 1).padStart(2, '0')}</span>
-                <strong>{group.name}</strong>
-                <i>{group.code}</i>
-              </div>
-              <div className="tech-skill-grid">
-                {group.items.map((technology) => {
-                  const technologyIndex = technologies.indexOf(technology)
-                  const isActive = activeTech === technology
-                  return (
-                  <button key={technology} className={isActive ? 'is-active' : ''} onMouseEnter={() => setActiveTech(technology)} onFocus={() => setActiveTech(technology)} onClick={() => setActiveTech(technology)} aria-pressed={isActive}>
-                    <motion.span className="tech-skill-fill" initial={false} animate={{ scaleX: isActive ? 1 : 0 }} transition={{ duration: .5, ease: [0.22, 1, 0.36, 1] }} />
-                    <span className="tech-skill-number">{String(technologyIndex + 1).padStart(2, '0')}</span>
-                    <span className="tech-skill-name">{technology}</span>
-                    <span className="tech-skill-status"><i /> {isActive ? 'IN FOCUS' : 'LEARNED'}</span>
-                    <ArrowUpRight />
-                  </button>
-                  )
-                })}
-              </div>
-            </motion.div>
-          ))}
+
+          <div className="toolkit-reader" style={{ '--lobe-accent': cluster.accent } as CSSProperties}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={cluster.name}
+                className="toolkit-reader-inner"
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -14 }}
+                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="toolkit-reader-meta">
+                  <span>{String(activeCluster + 1).padStart(2, '0')} / {String(TOOLKIT_CLUSTERS.length).padStart(2, '0')}</span>
+                  <span>{cluster.name}</span>
+                </div>
+                <div className="toolkit-chips">
+                  {cluster.items.map((tool, local) => {
+                    const isActive = activeTech === tool.name
+                    return (
+                      <button
+                        key={tool.name}
+                        className={`toolkit-chip${isActive ? ' is-active' : ''}`}
+                        aria-pressed={isActive}
+                        onMouseEnter={() => focusTool(activeCluster, local, tool.name)}
+                        onFocus={() => focusTool(activeCluster, local, tool.name)}
+                        onClick={() => focusTool(activeCluster, local, tool.name)}
+                      >
+                        <span className="toolkit-chip-name">{tool.name}</span>
+                        <i className="toolkit-chip-dot" />
+                      </button>
+                    )
+                  })}
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          <div className="toolkit-scrollcue" aria-hidden="true"><span>SCROLL</span></div>
         </div>
-      </div>
-      <div className="tech-footnote">
-        <p>Technique in service of <i>clarity.</i></p>
-        <span>DESIGN / CODE / MOTION / 2014—2026</span>
-        <motion.div animate={{ scaleX: [0, 1, 0], x: ['-100%', '0%', '100%'] }} transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }} />
       </div>
     </section>
   )
@@ -1596,13 +1682,17 @@ function App() {
               </div>
             </motion.div>
 
-            <Suspense fallback={null}>
-              <SonicRing progress={heroProgress} />
-            </Suspense>
+            <SceneBoundary label="SonicRing">
+              <Suspense fallback={null}>
+                <SonicRing progress={heroProgress} />
+              </Suspense>
+            </SceneBoundary>
 
-            <Suspense fallback={null}>
-              <SonicExitRing progress={heroProgress} />
-            </Suspense>
+            <SceneBoundary label="SonicExitRing">
+              <Suspense fallback={null}>
+                <SonicExitRing progress={heroProgress} />
+              </Suspense>
+            </SceneBoundary>
 
             <motion.div
               className="hero-emerge"

@@ -19,6 +19,7 @@
     "pdfjs-dist": "^4.7.76",
     "react": "19.1.1",
     "react-dom": "19.1.1",
+    "simple-icons": "^16.32.0",
     "three": "0.180.0"
   },
   "overrides": {
