@@ -621,92 +621,6 @@ function BrainLayer({ url, depth, count, progress, reducedMotion }: {
   )
 }
 
-function ProcessSection() {
-  const sectionRef = useRef<HTMLElement>(null)
-  const activePhaseRef = useRef(0)
-
-  const reducedMotion = useReducedMotion()
-  const [activePhase, setActivePhase] = useState(0)
-
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ['start start', 'end end'],
-  })
-
-  // Framer Motion spring physics for tactile, silky-smooth scroll tracking
-  const smoothProgress = useSpring(scrollYProgress, {
-    stiffness: 85,
-    damping: 26,
-    mass: 0.35,
-    restDelta: 0.0001,
-  })
-
-  // The whole plate stack breathes and tilts through the dissection
-  const stageScale = useTransform(smoothProgress, [0, 0.5, 1], [0.94, 1.05, 0.94])
-  const stageRotateX = useTransform(smoothProgress, [0, 0.5, 1], [0, 15, 0])
-  const stageRotateZ = useTransform(smoothProgress, [0, 0.5, 1], [0, -4, 0])
-  const copyY = useTransform(smoothProgress, [0, 0.5, 1], [24, 0, -24])
-  const copyOpacity = useTransform(smoothProgress, [0, 0.045, 0.94, 1], [0.35, 1, 1, 0.35])
-
-  // Scroll progress drives which process phase is shown
-  useMotionValueEvent(smoothProgress, 'change', (latest) => {
-    if (reducedMotion) return
-    const nextPhase = Math.min(
-      Math.floor(latest * processPhases.length),
-      processPhases.length - 1,
-    )
-    if (nextPhase !== activePhaseRef.current) {
-      activePhaseRef.current = nextPhase
-      setActivePhase(nextPhase)
-    }
-  })
-
-  const displayedPhase = reducedMotion ? 1 : activePhase
-  const phase = processPhases[displayedPhase]
-  const layerCount = brainLayerUrls.length
-
-  return (
-    <section className="process-section" id="process" ref={sectionRef}>
-      <div className="process-stage">
-        <motion.div
-          className="brain-layers"
-          style={reducedMotion ? undefined : { scale: stageScale, rotateX: stageRotateX, rotateZ: stageRotateZ }}
-          aria-hidden="true"
-        >
-          {brainLayerUrls.map((url, index) => (
-            <BrainLayer
-              key={url}
-              url={url}
-              depth={index}
-              count={layerCount}
-              progress={smoothProgress}
-              reducedMotion={!!reducedMotion}
-            />
-          ))}
-        </motion.div>
-        <div className="process-identifier section-tag">
-          <span>04</span> / OPERATING SYSTEM
-        </div>
-        <motion.div className="process-copy" style={reducedMotion ? undefined : { y: copyY, opacity: copyOpacity }}>
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.article
-              key={phase.number}
-              initial={reducedMotion ? false : { opacity: 0, y: 22, filter: 'blur(8px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={reducedMotion ? undefined : { opacity: 0, y: -18, filter: 'blur(8px)' }}
-              transition={{ duration: reducedMotion ? 0 : 0.42, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <span>{phase.number} / {phase.phase}</span>
-              <h2>{phase.title.split('\n').map((line) => <span key={line}>{line}</span>)}</h2>
-              <p>{phase.detail}</p>
-            </motion.article>
-          </AnimatePresence>
-        </motion.div>
-      </div>
-    </section>
-  )
-}
-
 const drawContainer: Variants = {
   hidden: {},
   shown: { transition: { staggerChildren: 0.1, delayChildren: 0.08 } },
@@ -990,7 +904,7 @@ function ArchiveResearch() {
           </Suspense>
 
           <div className="archive-head">
-            <div className="section-tag"><span>05</span> / WRITTEN INQUIRY</div>
+            <div className="section-tag"><span>03</span> / WRITTEN INQUIRY</div>
             <h2>THE READING <i>ROOM.</i></h2>
           </div>
 
@@ -1075,7 +989,6 @@ function ArchiveResearch() {
                   <p className="archive-reader-sub">{activePaper.subtitle}</p>
                   <div className="archive-reader-body">
                     <p><span className="archive-dropcap">{activePaper.abstract.charAt(0)}</span>{activePaper.abstract.slice(1)}</p>
-                    <blockquote>{activePaper.quote}</blockquote>
                   </div>
                   <ul className="archive-reader-keywords">
                     {activePaper.keywords.map((keyword) => <li key={keyword}>{keyword}</li>)}
@@ -1097,41 +1010,11 @@ function ArchiveResearch() {
   )
 }
 
-function ExperienceSection() {
-  return (
-    <section className="experience-section" id="experience">
-      <div className="experience-head">
-        <div className="section-tag"><span>06</span> / EXPERIENCE</div>
-        <Reveal><h2>A DECADE OF<br /><i>MAKING IT REAL.</i></h2></Reveal>
-      </div>
-      <div className="experience-list">
-        {experience.map((item, index) => (
-          <motion.article
-            className="experience-row"
-            key={item.period}
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-          >
-            <span className="experience-index">0{index + 1}</span>
-            <span className="experience-period">{item.period}</span>
-            <div className="experience-role"><h3>{item.role}</h3><span>{item.studio}</span></div>
-            <span className="experience-location">{item.location}</span>
-            <p>{item.detail}</p>
-            <div className="experience-clients">{item.clients.map((client) => <span key={client}>{client}</span>)}</div>
-          </motion.article>
-        ))}
-      </div>
-    </section>
-  )
-}
-
 function PrinciplesSection() {
   return (
     <section className="principles-section">
       <div className="principles-sticky">
-        <div className="section-tag"><span>07</span> / PRINCIPLES</div>
+        <div className="section-tag"><span>04</span> / PRINCIPLES</div>
         <h2>THE RULES<br />BEHIND THE<br /><i>WORK.</i></h2>
         <p>Not trends. Not a style guide. Four durable ideas that shape every technical and creative decision.</p>
       </div>
@@ -1173,7 +1056,7 @@ function TechnologySection() {
     <section className="technology-section">
       <div className="tech-head">
         <div>
-          <div className="section-tag"><span>08</span> / TOOLKIT</div>
+          <div className="section-tag"><span>05</span> / TOOLKIT</div>
           <h2>TOOLS, CHOSEN<br /><i>WITH INTENTION.</i></h2>
         </div>
         <div className="tech-head-meta">
@@ -1237,70 +1120,6 @@ function TechnologySection() {
         <p>Technique in service of <i>clarity.</i></p>
         <span>DESIGN / CODE / MOTION / 2014—2026</span>
         <motion.div animate={{ scaleX: [0, 1, 0], x: ['-100%', '0%', '100%'] }} transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }} />
-      </div>
-    </section>
-  )
-}
-
-function RecognitionSection() {
-  return (
-    <section className="recognition-section">
-      <div className="recognition-title">
-        <div className="section-tag"><span>09</span> / RECOGNITION</div>
-        <Reveal><h2>SELECTED<br /><i>SIGNALS.</i></h2></Reveal>
-      </div>
-      <div className="recognition-list">
-        {recognition.map(([organization, award, year], index) => (
-          <motion.div
-            key={`${organization}-${award}`}
-            initial={{ opacity: 0, x: -25 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: index * 0.06 }}
-          >
-            <span>0{index + 1}</span><strong>{organization}</strong><p>{award}</p><span>{year}</span><ArrowUpRight />
-          </motion.div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function TestimonialSection() {
-  const testimonials = [
-    {
-      quote: 'Alex operates in the rare space where an impossible creative concept becomes an even better technical system.',
-      person: 'MAYA CHEN',
-      role: 'VP DESIGN / NORTHSTAR',
-    },
-    {
-      quote: 'The work feels alive, but never arbitrary. Every surprising interaction is grounded in a remarkably clear engineering decision.',
-      person: 'JON BELL',
-      role: 'FOUNDER / OBJECT OFFICE',
-    },
-    {
-      quote: 'He elevated the ambition of the entire team and still delivered the fastest experience we had ever shipped.',
-      person: 'ELENA MORA',
-      role: 'CREATIVE DIRECTOR / FORMA',
-    },
-  ]
-  const [index, setIndex] = useState(0)
-  const testimonial = testimonials[index]
-
-  const change = (direction: number) => setIndex((current) => (current + direction + testimonials.length) % testimonials.length)
-
-  return (
-    <section className="testimonial-section">
-      <div className="testimonial-counter">{String(index + 1).padStart(2, '0')} / {String(testimonials.length).padStart(2, '0')}</div>
-      <AnimatePresence mode="wait">
-        <motion.blockquote key={testimonial.person} initial={{ opacity: 0, y: 25 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -25 }} transition={{ duration: 0.5 }}>
-          “{testimonial.quote}”
-          <footer><strong>{testimonial.person}</strong><span>{testimonial.role}</span></footer>
-        </motion.blockquote>
-      </AnimatePresence>
-      <div className="testimonial-controls">
-        <button onClick={() => change(-1)} aria-label="Previous testimonial"><ChevronLeft /></button>
-        <button onClick={() => change(1)} aria-label="Next testimonial"><ChevronRight /></button>
       </div>
     </section>
   )
@@ -1628,7 +1447,7 @@ function Header() {
       <AnimatePresence>
         {open && (
           <motion.nav className="menu" initial={{ clipPath: 'inset(0 0 100% 0)' }} animate={{ clipPath: 'inset(0 0 0% 0)' }} exit={{ clipPath: 'inset(0 0 100% 0)' }} transition={{ duration: 0.65, ease: [0.76, 0, 0.24, 1] }}>
-            {['WORK', 'ABOUT', 'CAPABILITIES', 'RESEARCH', 'CONTACT'].map((item, i) => (
+            {['WORK', 'ABOUT', 'RESEARCH', 'CONTACT'].map((item, i) => (
               <motion.a href={`#${item.toLowerCase()}`} key={item} onClick={() => setOpen(false)} initial={{ y: 80 }} animate={{ y: 0 }} transition={{ delay: 0.1 + i * 0.06 }}>
                 <small>0{i + 1}</small>{item}<ArrowUpRight />
               </motion.a>
@@ -1820,81 +1639,16 @@ function App() {
           </div>
         </section>
 
-        <section className="capabilities" id="capabilities">
-          <div className="cap-head">
-            <div className="section-tag"><span>03</span> / WHAT I DO</div>
-            <Reveal><h2>ENGINEERING<br /><i>THE IMPOSSIBLE.</i></h2></Reveal>
-          </div>
-          <div className="cap-grid">
-            {capabilities.map(([number, title, body], index) => (
-              <motion.article key={number} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.08 }}>
-                <span>{number}</span>
-                {index === 0 && <Code2 />}{index === 1 && <Braces />}{index === 2 && <Cpu />}{index === 3 && <Asterisk />}
-                <h3>{title}</h3><p>{body}</p>
-              </motion.article>
-            ))}
-          </div>
-          <Reveal className="terminal">
-            <div className="terminal-top"><span><i /><i /><i /></span><b>alex@rivera: ~/process</b><span>TSX</span></div>
-            <pre><code><span className="line">01</span> <b>const</b> intent = <em>await</em> understand(problem);{`\n`}<span className="line">02</span> <b>const</b> system = craft({`{`}{`\n`}<span className="line">03</span>   strategy: <i>intent</i>,{`\n`}<span className="line">04</span>   design: <i>"precise + alive"</i>,{`\n`}<span className="line">05</span>   engineering: <i>"built to last"</i>,{`\n`}<span className="line">06</span> {`}`});{`\n`}<span className="line">07</span>{`\n`}<span className="line">08</span> ship(system).<em>then</em>(makeItUnforgettable);</code></pre>
-          </Reveal>
-          <div className="capability-modules">
-            <motion.article whileHover={{ y: -8 }}>
-              <span>MODULE / A</span><Box /><h3>REAL-TIME GRAPHICS</h3><p>Custom shaders, particles, post-processing, procedural geometry, and disciplined rendering budgets.</p><b>THREE.JS / GLSL / R3F</b>
-            </motion.article>
-            <motion.article whileHover={{ y: -8 }}>
-              <span>MODULE / B</span><AudioLines /><h3>SPATIAL AUDIO</h3><p>Sound systems that respond to interaction, distance, sequence, and the emotional rhythm of an interface.</p><b>WEB AUDIO / TONE.JS</b>
-            </motion.article>
-            <motion.article whileHover={{ y: -8 }}>
-              <span>MODULE / C</span><Database /><h3>DESIGN SYSTEMS</h3><p>Flexible primitives and tokens that preserve creative intent across teams, platforms, and product states.</p><b>REACT / TYPESCRIPT</b>
-            </motion.article>
-            <motion.article whileHover={{ y: -8 }}>
-              <span>MODULE / D</span><Zap /><h3>PERFORMANCE</h3><p>Instrumentation, profiling, loading strategy, asset pipelines, and motion tuned for actual hardware.</p><b>LIGHTHOUSE / RUM</b>
-            </motion.article>
-          </div>
-        </section>
-
-        <ProcessSection />
-
         <PlaygroundSection />
-
-        <ExperienceSection />
 
         <PrinciplesSection />
 
         <TechnologySection />
 
-        <RecognitionSection />
-
-        <TestimonialSection />
-
-        <section className="dispatch-section">
-          <div className="dispatch-track">
-            <motion.div animate={{ x: ['0%', '-50%'] }} transition={{ duration: 28, repeat: Infinity, ease: 'linear' }}>
-              OPEN FOR COLLABORATION <Asterisk /> NEW YORK 2026 <Asterisk /> CREATIVE ENGINEERING <Asterisk /> OPEN FOR COLLABORATION <Asterisk /> NEW YORK 2026 <Asterisk /> CREATIVE ENGINEERING <Asterisk />
-            </motion.div>
-          </div>
-          <div className="dispatch-grid">
-            <div className="dispatch-copy">
-              <div className="section-tag"><span>10</span> / TRANSMISSION</div>
-              <h2>OCCASIONAL<br />NOTES FROM<br /><i>THE LAB.</i></h2>
-              <p>Experiments, technical breakdowns, references, and unfinished thoughts. No shortcuts. No weekly obligation.</p>
-            </div>
-            <form className="dispatch-form" onSubmit={(event) => event.preventDefault()}>
-              <label htmlFor="email">EMAIL ADDRESS</label>
-              <div><input id="email" type="email" placeholder="YOU@DOMAIN.COM" required /><button type="submit" aria-label="Subscribe"><ArrowUpRight /></button></div>
-              <span><i /> ENCRYPTED TRANSMISSION / ZERO SPAM</span>
-            </form>
-            <div className="dispatch-console">
-              <span>CHANNEL_10</span><TerminalSquare /><strong>WAITING FOR INPUT</strong><i className="console-cursor" />
-            </div>
-          </div>
-        </section>
-
         <section className="contact" id="contact">
           <div className="contact-orbit" aria-hidden="true"><span>LET'S MAKE SOMETHING REAL • LET'S MAKE SOMETHING REAL • </span><Asterisk /></div>
           <Reveal>
-            <div className="section-tag"><span>04</span> / START A PROJECT</div>
+            <div className="section-tag"><span>06</span> / START A PROJECT</div>
             <h2>HAVE AN IDEA<br />THAT <i>SHOULDN'T</i><br />BE POSSIBLE?</h2>
           </Reveal>
           <div className="contact-actions">

@@ -199,6 +199,43 @@ function getHaloTexture(): THREE.Texture {
   return texture
 }
 
+// A large soft-lit gradient plane sitting far behind the corridor — reads like
+// a studio wall / gallery backdrop rather than a flat black void. The glow is
+// biased slightly above centre so it feels like overhead light falling down.
+let backdropTexture: THREE.Texture | null = null
+function getBackdropTexture(): THREE.Texture {
+  if (backdropTexture) return backdropTexture
+  const canvas = document.createElement('canvas')
+  canvas.width = 512
+  canvas.height = 512
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+    ctx.fillStyle = '#080706'
+    ctx.fillRect(0, 0, 512, 512)
+    const grad = ctx.createRadialGradient(256, 205, 40, 256, 256, 400)
+    grad.addColorStop(0, '#37281a')
+    grad.addColorStop(0.4, '#241a11')
+    grad.addColorStop(0.75, '#12100c')
+    grad.addColorStop(1, '#070605')
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 0, 512, 512)
+  }
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  backdropTexture = texture
+  return texture
+}
+
+function Backdrop() {
+  const tex = useMemo(() => getBackdropTexture(), [])
+  return (
+    <mesh position={[0, 0, -20]} scale={[80, 50, 1]}>
+      <planeGeometry />
+      <meshBasicMaterial map={tex} toneMapped={false} depthWrite={false} fog={false} />
+    </mesh>
+  )
+}
+
 // --- Slab ----------------------------------------------------------------
 
 function GlassSlab({ slide, index, focus }: { slide: Slide; index: number; focus: MotionValue<number> }) {
@@ -340,16 +377,15 @@ function Scene({ slides, progress, accent }: { slides: Slide[]; progress: Motion
 
   return (
     <>
-      <color attach="background" args={['#0b0a09']} />
-      <fog attach="fog" args={['#0b0a09', 9, 27]} />
+      <color attach="background" args={['#0c0a08']} />
+      <fog attach="fog" args={['#161009', 14, 46]} />
+
+      <Backdrop />
 
       <ambientLight intensity={0.5} color="#6a5539" />
       <directionalLight position={[3, 4, 6]} intensity={1.8} color="#ffe9c2" />
       <directionalLight position={[-5, -2, 2]} intensity={0.6} color="#7fa8ff" />
       <AccentLight accent={accent} />
-
-      <Lightformer form="rect" intensity={2} color="#ffd9a0" scale={[7, 12, 1]} position={[-6, 2, -10]} rotation={[0, Math.PI / 6, 0]} toneMapped={false} />
-      <Lightformer form="rect" intensity={1.5} color="#8fb9ff" scale={[7, 12, 1]} position={[6, -1, -10]} rotation={[0, -Math.PI / 6, 0]} toneMapped={false} />
 
       <Environment resolution={256} frames={1}>
         <color attach="background" args={['#080706']} />

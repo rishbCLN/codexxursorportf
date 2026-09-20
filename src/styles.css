@@ -510,20 +510,18 @@ footer p { margin: 0; font: 500 9px/1.6 DM Mono; letter-spacing: .08em; }
 .archive-meter { position: absolute; z-index: 4; left: 0; top: 0; width: 100%; height: 2px; background: rgba(199,163,103,.14); overflow: hidden; }
 .archive-meter i { display: block; width: 100%; height: 100%; transform-origin: 0 50%; background: #c7a367; box-shadow: 0 0 12px rgba(199,163,103,.6); }
 
-/* Bottom reading slab — crisp typography over the softened 3D title */
-.archive-reader { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; padding: clamp(24px,5vh,64px) clamp(20px,3vw,60px) clamp(30px,5vh,56px); display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 20px clamp(24px,4vw,60px); background: linear-gradient(transparent,rgba(12,8,5,.62) 26%,rgba(12,8,5,.92)); }
-.archive-reader-inner { min-width: 0; max-width: 760px; }
-.archive-reader-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; color: #9a8a70; font: 500 8px DM Mono,monospace; letter-spacing: .14em; }
+/* Bottom reading slab — crisp typography over the softened 3D title.
+   Kept narrow + short so it frames the glass corridor instead of covering it. */
+.archive-reader { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; padding: clamp(18px,3vh,36px) clamp(20px,3vw,60px) clamp(22px,3.5vh,40px); display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 16px clamp(24px,4vw,60px); background: linear-gradient(transparent,rgba(12,8,5,.55) 40%,rgba(12,8,5,.9)); }
+.archive-reader-inner { min-width: 0; max-width: 440px; }
+.archive-reader-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; color: #9a8a70; font: 500 8px DM Mono,monospace; letter-spacing: .14em; }
 .archive-reader-meta span:nth-child(2) { color: var(--paper-accent); }
-.archive-reader-title { margin: 12px 0 0; font-family: Instrument Serif,serif; font-size: clamp(30px,4vw,60px); font-weight: 400; line-height: .9; letter-spacing: -.03em; color: #f4e8cd; }
-.archive-reader-sub { margin: 8px 0 0; color: #b3a488; font-family: Instrument Serif,serif; font-style: italic; font-size: clamp(16px,1.6vw,23px); line-height: 1.2; }
-.archive-reader-body { display: grid; grid-template-columns: 1.4fr 1fr; gap: clamp(20px,3vw,48px); margin-top: clamp(16px,2vw,26px); }
-.archive-reader-body p { margin: 0; color: #cabfa8; font-family: Instrument Serif,serif; font-size: clamp(15px,1.25vw,19px); line-height: 1.5; }
-.archive-dropcap { float: left; margin: 6px 8px 0 0; color: var(--paper-accent); font-family: Instrument Serif,serif; font-size: clamp(44px,4.6vw,66px); line-height: .6; }
-.archive-reader-body blockquote { margin: 0; align-self: center; color: #e4d8bd; font-family: Instrument Serif,serif; font-style: italic; font-size: clamp(17px,1.7vw,25px); line-height: 1.2; letter-spacing: -.01em; }
-.archive-reader-body blockquote::before { content: '\201C'; color: var(--paper-accent); }
-.archive-reader-body blockquote::after { content: '\201D'; color: var(--paper-accent); }
-.archive-reader-keywords { display: flex; flex-wrap: wrap; gap: 7px; margin: clamp(16px,2vw,24px) 0 0; padding: 0; list-style: none; }
+.archive-reader-title { margin: 9px 0 0; font-family: Instrument Serif,serif; font-size: clamp(24px,2.4vw,38px); font-weight: 400; line-height: .95; letter-spacing: -.03em; color: #f4e8cd; }
+.archive-reader-sub { margin: 6px 0 0; color: #b3a488; font-family: Instrument Serif,serif; font-style: italic; font-size: clamp(14px,1.2vw,18px); line-height: 1.25; }
+.archive-reader-body { margin-top: clamp(10px,1.4vw,16px); }
+.archive-reader-body p { margin: 0; color: #cabfa8; font-family: Instrument Serif,serif; font-size: clamp(13px,1vw,15px); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.archive-dropcap { float: left; margin: 5px 7px 0 0; color: var(--paper-accent); font-family: Instrument Serif,serif; font-size: clamp(32px,3vw,44px); line-height: .6; }
+.archive-reader-keywords { display: flex; flex-wrap: wrap; gap: 6px; margin: clamp(10px,1.4vw,16px) 0 0; padding: 0; list-style: none; }
 .archive-reader-keywords li { padding: 6px 10px; border: 1px solid rgba(199,163,103,.32); color: #b09a78; font: 500 7px DM Mono,monospace; letter-spacing: .1em; }
 .archive-reader-nav { display: flex; align-items: center; gap: 16px; color: #9a8a70; font: 500 9px DM Mono,monospace; letter-spacing: .1em; }
 .archive-reader-nav a { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid rgba(199,163,103,.3); border-radius: 50%; color: #e7d6b3; transition: background .3s,border-color .3s,color .3s; }
