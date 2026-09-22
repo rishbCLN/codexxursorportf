@@ -5,6 +5,7 @@ import type { Ref } from 'react'
 import { useTransform, useVelocity, useSpring, cubicBezier } from 'framer-motion'
 import type { MotionValue } from 'framer-motion'
 import * as THREE from 'three'
+import { TUNNEL, warpScrollTravel } from './warp'
 
 /*
   Cinematic timeline, all driven by the pinned hero's scroll (heroProgress 0..1):
@@ -14,8 +15,8 @@ import * as THREE from 'three'
                   flawless, face-on STOP (hole pointed at us)
     0.60 -> 0.72  holds a beat; the hole fades to matte black
     0.60 -> 0.80  we zoom INTO the hole (ring dives at the camera & engulfs)
-    0.74 -> 0.94  warp: speeding stars, trails driven by SCROLL VELOCITY
-                  (fast scroll = long streaks, stop = frozen dots)
+    0.74 -> 0.94  warp: speeding stars, depth + trails driven by SCROLL
+                  (fast scroll = long streaks, stop = the whole field rests)
     0.90 -> 1.00  a second ring approaches from deep down the tunnel
 */
 
@@ -124,7 +125,9 @@ function Ring({ progress }: { progress: MotionValue<number> }) {
 // warp through.
 function Hole({ progress }: { progress: MotionValue<number> }) {
   const mat = useRef<THREE.MeshBasicMaterial>(null)
-  const dark = useTransform(progress, [STOP, STOP + 0.12], [0, 1], { clamp: true, ease })
+  // Darkens fast so the matte void is already black by the time the warp field
+  // fades in (WARP_IN), giving the stars a black backdrop from the first scroll.
+  const dark = useTransform(progress, [STOP, STOP + 0.06], [0, 1], { clamp: true, ease })
 
   useFrame(() => {
     if (mat.current) mat.current.opacity = dark.get()
@@ -139,29 +142,40 @@ function Hole({ progress }: { progress: MotionValue<number> }) {
   )
 }
 
-const STAR_COUNT = 900
-const TUNNEL = 70 // depth of the warp corridor
-// How many tunnel-lengths of stars stream past across the whole warp window.
-// Lower = calmer, less "a tiny scroll flings me miles" (was an aggressive 6).
-const WARP_WRAPS = 3
+const STAR_COUNT = 1100
+// Corridor geometry (TUNNEL, WARP_WRAPS) and the depth-travel origin
+// (WARP_ANCHOR) are shared with the encounter layer via ./warp so both fields
+// move through the identical space at the identical, purely scroll-driven speed.
 
-// Speeding-stars warp. Star depth is a pure function of scroll PROGRESS, so if
-// you stop scrolling the stars freeze. Trail length is driven by scroll
-// VELOCITY, so fast scroll stretches them into streaks and rest collapses them
-// back to points.
+// The warp opens the instant we plunge into the hole (STOP + 0.04) rather than
+// waiting until we're deep in it — so the field is already there for the first
+// few scrolls after the ring, no dead gap.
+const WARP_IN = STOP + 0.04 // 0.64 — stars begin appearing
+const WARP_FULL = STOP + 0.1 // 0.70 — field at full brightness
+
+// The streak every star keeps once the scroll is at rest, so a stopped field
+// reads as calm, softly elongated points rather than retracting to hard dots.
+const REST_TRAIL = 0.55
+
+// Speeding-stars warp. Depth is a PURE function of scroll progress: scrolling
+// flings you forward, stopping brings the whole field to rest on the same frame
+// as the encounter craft (no ambient coast). Trail length rides scroll VELOCITY
+// (fast scroll = long streaks) on top of the resting baseline, easing back
+// gracefully to REST_TRAIL instead of snapping shut.
 function Warp({ progress }: { progress: MotionValue<number> }) {
   const lines = useRef<THREE.LineSegments>(null)
   const mat = useRef<THREE.LineBasicMaterial>(null)
 
-  // Stars stream in as the warp opens and keep flying through a long corridor
-  // (the exit ring only shows up at ~0.86), then fade OUT right at the punch-
-  // through so NOTHING is left flying once we hit the black.
-  const active = useTransform(progress, [STOP + 0.12, STOP + 0.18, 0.96, 0.985], [0, 1, 1, 0], { clamp: true })
-  // Smoothed absolute scroll velocity -> trail length.
+  // Stars stream in the moment the hole opens and keep flying through the long
+  // corridor, then fade OUT over a wider window into the punch-through so the
+  // dissolve reads as gliding to a stop rather than a hard cut.
+  const active = useTransform(progress, [WARP_IN, WARP_FULL, 0.94, 0.975], [0, 1, 1, 0], { clamp: true })
+  // Smoothed absolute scroll velocity -> trail length. A soft, well-damped
+  // spring so streaks ease down to the resting baseline instead of snapping.
   const velocity = useVelocity(progress)
-  const smoothVel = useSpring(velocity, { stiffness: 220, damping: 40 })
+  const smoothVel = useSpring(velocity, { stiffness: 55, damping: 28, mass: 0.9 })
 
-  // Fixed x/y per star; z is derived every frame from progress.
+  // Fixed x/y per star; z is derived every frame from scroll progress alone.
   const seed = useMemo(() => {
     const s = new Float32Array(STAR_COUNT * 3)
     for (let i = 0; i < STAR_COUNT; i++) {
@@ -183,15 +197,17 @@ function Warp({ progress }: { progress: MotionValue<number> }) {
 
     if (lines.current && a > 0.001) {
       const p = progress.get()
-      // Travel maps progress across the warp window into tunnel distance.
-      const travel = ((p - (STOP + 0.14)) / (1 - (STOP + 0.14))) * TUNNEL * WARP_WRAPS
-      const trail = THREE.MathUtils.clamp(Math.abs(smoothVel.get()) * 26, 0.05, 7)
+      // Depth flown down the corridor — pure scroll, shared with the encounter
+      // layer so stars and craft rest together the instant scrolling stops.
+      const travel = warpScrollTravel(p)
+      // Streak = resting baseline + eased scroll-velocity contribution.
+      const trail = THREE.MathUtils.clamp(Math.abs(smoothVel.get()) * 26 + REST_TRAIL, REST_TRAIL, 7)
       const arr = positions
 
       for (let i = 0; i < STAR_COUNT; i++) {
         const x = seed[i * 3]
         const y = seed[i * 3 + 1]
-        // Wrap through the tunnel so the stream is endless as we scroll.
+        // Wrap through the tunnel so the stream is endless as we scroll/drift.
         let z = ((seed[i * 3 + 2] + travel) % TUNNEL) - TUNNEL + 6
         const h = i * 6
         arr[h] = x

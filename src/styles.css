@@ -41,23 +41,19 @@ button { font: inherit; }
 .metal-leaf { fill: url(#apple-metal); stroke: #666c70; stroke-width: .8; }
 .metal-leaf-vein { fill: none; stroke: rgba(45,49,52,.62); stroke-width: .8; }
 
-.loader { position: fixed; z-index: 10000; inset: 0; overflow: hidden; background: #050505; color: var(--paper); }
+.loader { position: fixed; z-index: 10000; inset: 0; overflow: hidden; background: #050505; color: var(--paper); will-change: clip-path, opacity; }
 .loader-scene { position: absolute; inset: 0; overflow: hidden; }
-.loader-world { position: absolute; inset: 0; transform-origin: 50% 70%; will-change: transform; }
 .loader-sky { position: absolute; inset: 0; overflow: hidden; }
-.loader-clouds { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 32%; filter: brightness(.6) saturate(.72) contrast(1.06); }
-.loader-toji { position: absolute; z-index: 1; top: 0; left: 50%; width: clamp(64px, 8vw, 132px); height: auto; will-change: transform; }
-.loader-speed { position: absolute; z-index: 1; inset: 0; overflow: hidden; pointer-events: none; mix-blend-mode: screen; }
-.loader-speed-lines { position: absolute; left: 0; right: 0; top: -60%; height: 220%; background-image: repeating-linear-gradient(90deg, transparent 0 9px, rgba(255,241,214,.55) 9px 10px, transparent 10px 38px); -webkit-mask-image: repeating-linear-gradient(to bottom, transparent 0 26px, #000 58px, transparent 92px); mask-image: repeating-linear-gradient(to bottom, transparent 0 26px, #000 58px, transparent 92px); filter: blur(1px); will-change: transform; animation: loader-speedrush .4s linear infinite; }
-@keyframes loader-speedrush { to { transform: translateY(-92px); } }
-.loader-sky-fade { position: absolute; z-index: 2; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(5,5,5,.4) 0%, transparent 16%, transparent 60%, #050505 100%); }
-.loader-blackout { position: absolute; z-index: 1; inset: 0; background: #050505; pointer-events: none; }
-.loader-hud { position: absolute; z-index: 2; inset: 0; padding: 30px 3vw; pointer-events: none; display: flex; justify-content: space-between; align-items: flex-start; }
+.loader-clouds { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 38%; filter: brightness(.5) saturate(.68) contrast(1.08); transform: scale(1.04); }
+.loader-sky-fade { position: absolute; z-index: 2; inset: 0; pointer-events: none; background: radial-gradient(120% 90% at 50% 28%, transparent 42%, rgba(5,5,5,.5) 100%), linear-gradient(180deg, rgba(5,5,5,.55) 0%, transparent 24%, transparent 52%, #050505 100%); }
+.loader-hud { position: absolute; z-index: 3; inset: 0; padding: 30px 3vw; pointer-events: none; display: flex; justify-content: space-between; align-items: flex-start; will-change: opacity, transform; }
 .loader-mark { display: flex; align-items: center; gap: 8px; font: 500 12px 'DM Mono', monospace; letter-spacing: .1em; }
 .loader-mark svg { color: var(--acid); }
-.loader-status { font: 500 10px 'DM Mono', monospace; letter-spacing: .22em; color: #8f8e86; }
-.loader-progress { position: absolute; z-index: 2; left: 50%; bottom: 6vh; transform: translateX(-50%); width: min(240px, 42vw); height: 1px; background: rgba(242,241,235,.16); overflow: hidden; }
-.loader-progress span { display: block; width: 100%; height: 100%; background: var(--acid); transform-origin: center; will-change: transform; box-shadow: 0 0 10px rgba(231,182,92,.7); }
+.loader-status { font: 500 10px 'DM Mono', monospace; letter-spacing: .24em; color: #9a988f; }
+.loader-counter { position: absolute; z-index: 3; left: 3vw; bottom: 5.5vh; display: flex; align-items: flex-end; gap: .12em; font: 500 clamp(72px, 15vw, 208px)/0.8 'DM Mono', monospace; letter-spacing: -.045em; color: var(--paper); font-variant-numeric: tabular-nums; will-change: opacity, transform; }
+.loader-counter i { font-style: normal; font-size: .17em; letter-spacing: .06em; color: #9a988f; margin-bottom: 1.1em; }
+.loader-line { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(242,241,235,.14); overflow: hidden; will-change: opacity, transform; }
+.loader-line span { display: block; width: 100%; height: 100%; background: var(--acid); transform-origin: 0 50%; transform: scaleX(0); box-shadow: 0 0 12px rgba(231,182,92,.65); }
 
 header { position: absolute; z-index: 100; top: 0; left: 0; right: 0; height: 94px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0 3vw; border-bottom: 1px solid var(--line); }
 .wordmark { font-size: 27px; font-weight: 900; letter-spacing: -.12em; justify-self: start; }
@@ -77,7 +73,7 @@ header { position: absolute; z-index: 100; top: 0; left: 0; right: 0; height: 94
 .menu a small { width: 7vw; font: 500 10px DM Mono; letter-spacing: 0; }
 .menu a svg { margin-left: auto; width: 5vw; height: 5vw; stroke-width: 1; }
 
-.hero { position: relative; height: 920svh; background: var(--ink); }
+.hero { position: relative; height: 1200svh; background: var(--ink); }
 .hero-stage { position: sticky; top: 0; height: 100svh; overflow: hidden; isolation: isolate; background: var(--ink); }
 .hero-panel { position: absolute; z-index: 1; inset: 0; overflow: hidden; background: var(--ink); transform-origin: 56% 45%; display: grid; grid-template-rows: auto 1fr auto; gap: clamp(24px, 4vh, 60px); padding: clamp(104px, 13vh, 150px) 3vw clamp(30px, 4vh, 46px); will-change: transform, opacity; }
 .hero-panel::before { content: ''; position: absolute; inset: 0; z-index: 0; background: linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px); background-size: 5.5vw 5.5vw; mask-image: radial-gradient(120% 100% at 30% 20%, black, transparent 78%); }
@@ -91,6 +87,12 @@ header { position: absolute; z-index: 100; top: 0; left: 0; right: 0; height: 94
 .hand-right { -webkit-mask-image: radial-gradient(105% 105% at 36% 67%, #000 34%, rgba(0,0,0,.5) 58%, transparent 76%); mask-image: radial-gradient(105% 105% at 36% 67%, #000 34%, rgba(0,0,0,.5) 58%, transparent 76%); }
 .hero-hand-img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; filter: brightness(1.5) contrast(1.12) saturate(1.06); }
 .hero-ring-canvas { position: absolute; z-index: 3; inset: 0; pointer-events: none; }
+/* Sits ABOVE the ring/star canvas so the craft aren't hidden behind the matte
+   black "hole" disc that fills the ring during the dive. Same z as the ring &
+   exit canvases; DOM order (ring -> warp -> exit) keeps the craft above the
+   stars but below the exit gate. */
+.hero-warp-canvas { position: absolute; z-index: 3; inset: 0; pointer-events: none; will-change: opacity; }
+.hero-warp-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
 .hero-exit-canvas { position: absolute; z-index: 3; inset: 0; pointer-events: none; will-change: filter; }
 .hero-exit-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
 .hero-emerge { position: absolute; z-index: 4; inset: 0; pointer-events: none; will-change: background, opacity; }
@@ -720,14 +722,14 @@ footer p { margin: 0; font: 500 9px/1.6 DM Mono; letter-spacing: .08em; }
   body, a, button { cursor: auto; }
   .cursor { display: none; }
   .loader-hud { padding: 20px 18px; }
-  .loader-progress { width: 55vw; bottom: 7vh; }
+  .loader-counter { left: 18px; bottom: 4vh; }
   .scroll-apple { opacity: .94; }
   .silver-apple { top: 3px; right: 3px; width: 50px; }
   header { height: 72px; padding-inline: 18px; }
   .menu { padding: 100px 20px 30px; }
   .menu a { font-size: 12vw; padding: 12px 0; }
   .menu a small { width: 32px; }
-  .hero { height: 860svh; }
+  .hero { height: 1120svh; }
   .hero-stage { padding: 88px 18px 26px; gap: 24px; }
   .hero-top { flex-direction: column; gap: 16px; }
   .hero-intro { max-width: none; font-size: 14px; }

@@ -34,9 +34,9 @@ import ScrollApple from './ScrollApple'
 import heroHandLeftUrl from './assets/hero-hand-left.png'
 import heroHandRightUrl from './assets/hero-hand-right.png'
 import cloudsUrl from './assets/clouds.png'
-import tojiUrl from './assets/toji.png'
 
 const SonicRing = lazy(() => import('./SonicRing'))
+const WarpField = lazy(() => import('./WarpField'))
 const SonicExitRing = lazy(() => import('./SonicExitRing'))
 const ResearchArchive = lazy(() => import('./ResearchArchive'))
 const ToolkitCortex = lazy(() => import('./ToolkitCortex'))
@@ -384,69 +384,118 @@ function Cursor() {
   )
 }
 
+// Decode an image off-thread; resolves once the bitmap is actually ready to
+// paint (not merely fetched), so the reveal can't hand off to a blank hero.
+function decodeImage(src: string): Promise<void> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.src = src
+    const done = () => resolve()
+    if (img.decode) img.decode().then(done, done)
+    else if (img.complete) done()
+    else {
+      img.onload = done
+      img.onerror = done
+    }
+  })
+}
+
 function Loader() {
   const [visible, setVisible] = useState(true)
   const rootRef = useRef<HTMLDivElement>(null)
-  const worldRef = useRef<HTMLDivElement>(null)
-  const tojiRef = useRef<HTMLImageElement>(null)
-  const speedRef = useRef<HTMLDivElement>(null)
-  const blackoutRef = useRef<HTMLDivElement>(null)
-  const barRef = useRef<HTMLSpanElement>(null)
+  const numRef = useRef<HTMLSpanElement>(null)
+  const lineRef = useRef<HTMLSpanElement>(null)
+  const statusRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const shadow = 'drop-shadow(0 14px 30px rgba(0,0,0,0.5))'
-    const ctx = gsap.context(() => {
-      gsap.set(tojiRef.current, { xPercent: -50, yPercent: -30, rotation: -3, opacity: 1, filter: `blur(0px) ${shadow}` })
-      gsap.set(worldRef.current, { scale: 1, transformOrigin: '50% 70%' })
-      gsap.set(barRef.current, { scaleX: 0, transformOrigin: 'center' })
-      gsap.set(speedRef.current, { opacity: 0 })
-      gsap.set(blackoutRef.current, { opacity: 0 })
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const MIN = 900 // keep the loader on screen at least this long (no flash)
+    const MAX = 12000 // hard failsafe — never trap the user, even on a stall
+    const start = performance.now()
+    let cancelled = false
+    let raf = 0
 
-      const tl = gsap.timeline({ onComplete: () => window.setTimeout(() => setVisible(false), 150) })
+    // Hero-critical work only: the 3D warp chunks, the hero-hand + cloud images,
+    // and web fonts. Below-the-fold (toolkit, research/PDF) keeps lazy-loading.
+    // These import() specifiers match the React.lazy ones, so the bundler
+    // dedupes — this resolves exactly when those chunks finish fetching/parsing.
+    const tasks: Promise<unknown>[] = [
+      import('./SonicRing'),
+      import('./WarpField'),
+      import('./SonicExitRing'),
+      decodeImage(cloudsUrl),
+      decodeImage(heroHandLeftUrl),
+      decodeImage(heroHandRightUrl),
+      document.fonts ? document.fonts.ready : Promise.resolve(),
+    ]
+    const total = tasks.length
+    let completed = 0
+    tasks.forEach((t) => Promise.resolve(t).then(() => { completed++ }, () => { completed++ }))
+    let allDone = false
+    Promise.allSettled(tasks).then(() => { allDone = true })
 
-      // Progress hairline fills across the whole intro.
-      tl.to(barRef.current, { scaleX: 1, ease: 'none', duration: 2.9 }, 0)
-      // Fast, straight, continuously accelerating fall (real gravity — power2.in).
-      tl.to(tojiRef.current, { yPercent: 450, rotation: 2, ease: 'power2.in', duration: 2.2 }, 0)
-      // Motion blur only in the last stretch of the fall (peak velocity).
-      tl.to(tojiRef.current, { filter: `blur(12px) ${shadow}`, ease: 'power2.in', duration: 0.95 }, 1.3)
-      // Anime speed lines during the fast stretch.
-      tl.to(speedRef.current, { opacity: 0.55, duration: 0.35 }, 1.3)
-      tl.to(speedRef.current, { opacity: 0, duration: 0.4 }, 2.1)
-      // A gentle push-in as he nears the clouds (half the previous zoom).
-      tl.to(worldRef.current, { scale: 1.9, ease: 'power3.in', duration: 0.85 }, 1.65)
-      // He vanishes into the clouds.
-      tl.to(tojiRef.current, { opacity: 0, duration: 0.35 }, 2.1)
-      // Brief darkness, then the hero emerges.
-      tl.to(blackoutRef.current, { opacity: 1, duration: 0.45 }, 2.45)
-    }, rootRef)
+    const reveal = () => {
+      if (cancelled) return
+      if (statusRef.current) statusRef.current.textContent = 'READY'
+      const finish = () => { if (!cancelled) setVisible(false) }
+      if (reduced) {
+        gsap.to(rootRef.current, { opacity: 0, duration: 0.5, ease: 'power2.out', onComplete: finish })
+        return
+      }
+      const tl = gsap.timeline({ onComplete: finish })
+      // Counter + line lift away first, then a clip-path curtain wipes the whole
+      // panel upward, dissolving into the hero already mounted beneath it.
+      tl.to(['.loader-counter', '.loader-line', '.loader-hud'], { opacity: 0, y: -14, duration: 0.4, ease: 'power2.in' }, 0)
+      tl.fromTo(
+        rootRef.current,
+        { clipPath: 'inset(0% 0% 0% 0%)' },
+        { clipPath: 'inset(0% 0% 100% 0%)', duration: 0.95, ease: 'power4.inOut' },
+        0.18,
+      )
+      tl.to(rootRef.current, { opacity: 0, duration: 0.3, ease: 'power1.in' }, 0.9)
+    }
 
-    return () => ctx.revert()
+    let shown = 0 // eased 0..1 displayed value; never runs backward
+    const tick = (now: number) => {
+      if (cancelled) return
+      const elapsed = now - start
+      const target = completed / total
+      shown += (target - shown) * 0.08
+      const ready = (allDone && elapsed >= MIN) || elapsed >= MAX
+      if (ready) shown += (1 - shown) * 0.2 // ease the last stretch to 100
+      else shown = Math.min(shown, 0.99) // hold below 100 until truly ready
+      if (shown > 0.999) shown = 1
+      const pct = Math.round(shown * 100)
+      if (numRef.current) numRef.current.textContent = String(pct).padStart(2, '0')
+      if (lineRef.current) lineRef.current.style.transform = `scaleX(${shown})`
+      if (shown >= 1) { reveal(); return }
+      raf = requestAnimationFrame(tick)
+    }
+
+    if (numRef.current) numRef.current.textContent = '00'
+    if (lineRef.current) lineRef.current.style.transform = 'scaleX(0)'
+    raf = requestAnimationFrame(tick)
+
+    return () => { cancelled = true; cancelAnimationFrame(raf) }
   }, [])
 
+  if (!visible) return null
+
   return (
-    <AnimatePresence>
-      {visible && (
-        <motion.div ref={rootRef} className="loader" exit={{ opacity: 0 }} transition={{ duration: 0.55, ease: [0.76, 0, 0.24, 1] }}>
-          <div className="loader-scene">
-            <div className="loader-world" ref={worldRef}>
-              <div className="loader-sky">
-                <img className="loader-clouds" src={cloudsUrl} alt="" draggable={false} />
-                <div className="loader-speed" ref={speedRef}><div className="loader-speed-lines" /></div>
-                <img className="loader-toji" ref={tojiRef} src={tojiUrl} alt="" draggable={false} />
-                <div className="loader-sky-fade" />
-              </div>
-            </div>
-          </div>
-          <div className="loader-blackout" ref={blackoutRef} />
-          <div className="loader-hud">
-            <div className="loader-mark"><Asterisk size={16} /> AR / 26</div>
-            <div className="loader-status">LOADING</div>
-          </div>
-          <div className="loader-progress"><span ref={barRef} /></div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <div ref={rootRef} className="loader">
+      <div className="loader-scene">
+        <div className="loader-sky">
+          <img className="loader-clouds" src={cloudsUrl} alt="" draggable={false} />
+          <div className="loader-sky-fade" />
+        </div>
+      </div>
+      <div className="loader-hud">
+        <div className="loader-mark"><Asterisk size={16} /> AR / 26</div>
+        <div className="loader-status" ref={statusRef}>LOADING</div>
+      </div>
+      <div className="loader-counter"><span ref={numRef}>00</span><i>%</i></div>
+      <div className="loader-line"><span ref={lineRef} /></div>
+    </div>
   )
 }
 
@@ -1562,7 +1611,7 @@ function App() {
   // after the exact same scroll distance, handing the huge remainder to the
   // dive + warp. Hand feel is byte-for-byte identical; the warp just breathes.
   //   HERO_VH / HERO_VH_OLD must match .hero height in styles.css.
-  const HERO_VH = 920 // <- keep in sync with .hero (desktop) in styles.css
+  const HERO_VH = 1200 // <- keep in sync with .hero (desktop) in styles.css
   const HERO_VH_OLD = 420 // the height the hand timing was tuned against
   const VIEW_VH = 100
   // Scroll distance (in svh) the hands used to travel — the feel we preserve.
@@ -1572,7 +1621,7 @@ function App() {
   // Piecewise-linear: [0..R_TOUCH] -> [0..0.46] (hands, same scroll distance),
   // then [R_TOUCH..1] -> [0.46..1] (dive + warp, now with room to breathe).
   const heroMapped = useTransform(heroRaw, [0, R_TOUCH, 1], [0, 0.46, 1])
-  const heroProgress = useSpring(heroMapped, { stiffness: 120, damping: 30, restDelta: 0.0002 })
+  const heroProgress = useSpring(heroMapped, { stiffness: 120, damping: 24, restDelta: 0.0002 })
   // Ring stops ~0.60, we dive into the hole 0.60->0.80, then warp. The panel
   // (hero text + hands) scales up into the dive and fades out before the warp
   // so only the ring/stars remain for the journey.
@@ -1591,7 +1640,7 @@ function App() {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
     const lenis = new Lenis({
-      lerp: 0.09,
+      lerp: 0.11,
       wheelMultiplier: 1,
       touchMultiplier: 1.6,
       smoothWheel: true,
@@ -1685,6 +1734,12 @@ function App() {
             <SceneBoundary label="SonicRing">
               <Suspense fallback={null}>
                 <SonicRing progress={heroProgress} />
+              </Suspense>
+            </SceneBoundary>
+
+            <SceneBoundary label="WarpField">
+              <Suspense fallback={null}>
+                <WarpField progress={heroProgress} />
               </Suspense>
             </SceneBoundary>
 
