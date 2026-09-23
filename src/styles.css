@@ -68,6 +68,18 @@ button { font: inherit; }
 .loader-counter i { font-style: normal; font-size: .17em; letter-spacing: .06em; color: #9a988f; margin-bottom: 1.1em; }
 .loader-line { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(242,241,235,.14); overflow: hidden; will-change: opacity, transform; }
 .loader-line span { display: block; width: 100%; height: 100%; background: var(--acid); transform-origin: 0 50%; transform: scaleX(0); box-shadow: 0 0 12px rgba(231,182,92,.65); }
+/* Founder / CEO quote — the focal line of the loading screen. A fresh one shows
+   on every load in the site's OWN Instrument Serif italic (the same elegant
+   accent used across the hero + sections), on a WIDE measure so it reads as one
+   horizontal line (two at most on a phone), never a tall column. Brushed
+   grey-chrome fill matches the liquid-chrome identity; the attribution is a very
+   small DM Mono cap line in a different, professional face. The block is
+   transform-free so the reveal timeline owns its exit transform without fighting
+   CSS centring. */
+.loader-quote { position: absolute; z-index: 3; inset: 0; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8vh 8vw 22vh; text-align: center; pointer-events: none; }
+.loader-quote-inner { max-width: min(920px, 86vw); will-change: transform, opacity; }
+.loader-quote-text { margin: 0; font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 400; font-size: clamp(24px, 3vw, 40px); line-height: 1.2; letter-spacing: -.01em; text-wrap: balance; background: linear-gradient(180deg, #d3d1cb 0%, #b7b5ad 34%, #8c8a83 62%, #c6c3bb 100%); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 14px rgba(0,0,0,.5)); }
+.loader-quote-author { display: block; margin-top: clamp(16px, 2.2vh, 26px); font: 500 clamp(9px, .9vw, 11px) 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .24em; color: #85837b; }
 
 header { position: absolute; z-index: 100; top: 0; left: 0; right: 0; height: 94px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0 3vw; border-bottom: 1px solid var(--line); }
 .wordmark { font-size: 27px; font-weight: 900; letter-spacing: -.12em; justify-self: start; }
@@ -737,6 +749,8 @@ footer p { margin: 0; font: 500 9px/1.6 DM Mono; letter-spacing: .08em; }
   .cursor { display: none; }
   .loader-hud { padding: 20px 18px; }
   .loader-counter { left: 18px; bottom: 4vh; }
+  .loader-quote { padding: 5vh 7vw 30vh; }
+  .loader-quote-text { font-size: clamp(22px, 6.4vw, 34px); }
   .scroll-apple { opacity: .94; }
   .silver-apple { top: 3px; right: 3px; width: 50px; }
   header { height: 72px; padding-inline: 18px; }

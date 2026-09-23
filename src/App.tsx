@@ -408,8 +408,29 @@ function decodeImage(src: string): Promise<void> {
 // loading, then peel away independently to reveal the hero beneath.
 const LOADER_SLATS = 7
 
+// Founder / CEO / entrepreneur quotes shown on the loading screen. One is picked
+// at random on every load and rendered in the site's Instrument Serif italic
+// (see .loader-quote). Kept short (<=40 chars) so each lays out on one line, or
+// two at most on a narrow phone.
+const LOADER_QUOTES: { text: string; author: string }[] = [
+  { text: 'Stay hungry, stay foolish.', author: 'Steve Jobs' },
+  { text: 'Make something people want.', author: 'Paul Graham' },
+  { text: 'Ideas are easy. Implementation is hard.', author: 'Guy Kawasaki' },
+  { text: 'The biggest risk is not taking any risk.', author: 'Mark Zuckerberg' },
+  { text: 'Ideas are commodities. Execution is not.', author: 'Michael Dell' },
+  { text: 'Whatever you do, be different.', author: 'Anita Roddick' },
+  { text: 'Get big fast.', author: 'Jeff Bezos' },
+  { text: 'Done is better than perfect.', author: 'Sheryl Sandberg' },
+  { text: 'Chase the vision, not the money.', author: 'Tony Hsieh' },
+  { text: 'Culture eats strategy for breakfast.', author: 'Peter Drucker' },
+  { text: 'Only the paranoid survive.', author: 'Andy Grove' },
+  { text: 'Growth and comfort do not coexist.', author: 'Ginni Rometty' },
+]
+
 function Loader() {
   const [visible, setVisible] = useState(true)
+  // Pick one quote for this page load and keep it stable for the loader's life.
+  const [quote] = useState(() => LOADER_QUOTES[Math.floor(Math.random() * LOADER_QUOTES.length)])
   const rootRef = useRef<HTMLDivElement>(null)
   const numRef = useRef<HTMLSpanElement>(null)
   const lineRef = useRef<HTMLSpanElement>(null)
@@ -419,6 +440,16 @@ function Loader() {
 
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    // Handwritten quote entrance: the block rises in and the text "writes" itself
+    // on left-to-right, the attribution signing off a beat later — so the wait
+    // opens like a hand-penned note. Under reduced-motion it's simply present.
+    if (!reduced) {
+      gsap.from('.loader-quote-inner', { opacity: 0, y: 26, duration: 1.0, ease: 'power3.out', delay: 0.3 })
+      gsap.fromTo('.loader-quote-text', { clipPath: 'inset(0 100% -18% 0)' }, { clipPath: 'inset(0 0% -18% 0)', duration: 1.6, ease: 'power2.inOut', delay: 0.45 })
+      gsap.from('.loader-quote-author', { opacity: 0, y: 12, duration: 0.7, ease: 'power2.out', delay: 1.3 })
+    }
+
     // Deliberate, cinematic hold, extended so far more of the site streams into
     // cache behind the loader. MIN is the floor the loader stays up even on a
     // fully-warm cache; PACE_DUR is the envelope the 00->100 count climbs across
@@ -499,6 +530,7 @@ function Loader() {
       // parting.
       tl.addLabel('charge', 'lock+=0.55')
         .to(['.loader-counter', '.loader-hud'], { yPercent: -18, opacity: 0, duration: 0.55, ease: 'power2.in' }, 'charge')
+        .to('.loader-quote-inner', { yPercent: -24, opacity: 0, duration: 0.6, ease: 'power2.in' }, 'charge')
         .to('.loader-line span', { scaleX: 1, duration: 0.4, ease: 'power2.out' }, 'charge')
         .to('.loader-line', { opacity: 0, duration: 0.3, ease: 'power1.in' }, 'charge+=0.35')
         .to(seamRef.current, { scaleY: 2.4, filter: 'brightness(1.9)', duration: 0.45, ease: 'power2.out' }, 'charge')
@@ -603,6 +635,12 @@ function Loader() {
       <div className="loader-sky-fade" aria-hidden="true" />
       <div className="loader-seam" ref={seamRef} aria-hidden="true" />
       <div className="loader-flash" aria-hidden="true" />
+      <figure className="loader-quote">
+        <div className="loader-quote-inner">
+          <p className="loader-quote-text">{quote.text}</p>
+          <figcaption className="loader-quote-author">&mdash; {quote.author}</figcaption>
+        </div>
+      </figure>
       <div className="loader-hud">
         <div className="loader-mark"><Asterisk size={16} /> AR / 26</div>
         <div className="loader-status" ref={statusRef}>LOADING</div>
