@@ -1,11 +1,12 @@
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Environment, Lightformer, RoundedBox, Float } from '@react-three/drei'
-import { EffectComposer, DepthOfField, Bloom, Vignette, N8AO } from '@react-three/postprocessing'
+import { Environment, Lightformer, RoundedBox, Float, Preload } from '@react-three/drei'
+import { EffectComposer, Bloom, Vignette, N8AO } from '@react-three/postprocessing'
 import { Suspense, useMemo, useRef, useEffect } from 'react'
 import { motion, useTransform } from 'framer-motion'
 import type { MotionValue } from 'framer-motion'
 import * as THREE from 'three'
 import { CAM_Z, WARP_FOV, TUNNEL, warpScrollTravel } from './warp'
+import { WarmupProbe } from './WarmupProbe'
 
 /* ---------------------------------------------------------------------------
    WARP FIELD — the deep-space encounters you drift past inside the warp.
@@ -18,10 +19,11 @@ import { CAM_Z, WARP_FOV, TUNNEL, warpScrollTravel } from './warp'
    solar arrays). Each is highly detailed (PBR metal/foil, env reflections,
    procedural normal/roughness) — not low-poly.
 
-   The whole layer runs through a real DEPTH-OF-FIELD pass, so an object is a
-   soft, blurred smudge when it's far down the corridor and RESOLVES into crisp
-   focus as it flies toward the camera — it appears "into existence" from a
-   great distance rather than popping in.
+   Every craft renders CRISP at every depth — there is NO depth-of-field blur.
+   The more real dimensionality we build into a body, the more we want it razor
+   sharp so that geometry reads. Bodies still appear "into existence" from a
+   great distance rather than popping in, but the emergence is carried by the
+   corridor haze (fog) + an opacity fade-up — not a focus pull.
 
    Depth is a PURE, DETERMINISTIC function of the hero scroll (no wall-clock
    drift): every body is anchored at a FIXED MILESTONE COORDINATE down the
@@ -46,11 +48,6 @@ const FIELD_OUT = 0.885
 // are pure consequences of its true (x, y, z) relative to the camera at the
 // current scroll — exactly like the stars. It shares the space, never pasted on.
 
-// World focus plane (a touch in front of the camera). A body is razor-sharp as it
-// crosses this depth and softens (via real depth-of-field) far up-corridor and as
-// it rushes past the lens.
-const FOCUS_WORLD_Z = -3
-
 // Cull bounds in world z. Beyond FAR_CULL a body is lost in the corridor haze;
 // past NEAR_CULL it's behind the camera. Between, it's simply rendered by the
 // perspective camera at its true depth — no visibility tricks.
@@ -61,6 +58,17 @@ const NEAR_CULL = CAM_Z + 2 // ≈ 8
 // of the corridor haze as we approach it, so it materialises from distance
 // instead of popping into frame.
 const REVEAL_DEPTH = 18
+
+// GPU WARM-UP. At rest (scroll 0, still behind the loader) only the nearest
+// craft is inside the cull window; the other four never render, so their
+// geometry upload + shadow-depth program variants + N8AO/Bloom passes are all
+// deferred to the FIRST scroll into the warp — a visible hitch exactly when the
+// encounters should be gliding in smoothly. For this many rendered frames each
+// craft is instead forced visible in a near, in-frustum depth band so it fully
+// rasterises, casts/receives its shadow and runs the composer once. The whole
+// canvas is CSS opacity:0 at this scroll, so none of it is ever seen — it only
+// primes the GPU. WarmupProbe reports the canvas "ready" only AFTER this sweep.
+const WARM_FRAMES = 16
 
 type Craft = 'satellite' | 'probe' | 'shuttle' | 'capsule' | 'station'
 
@@ -208,6 +216,46 @@ function insetExtrude(shape: THREE.Shape, s: number, depth: number, z: number) {
 
 /* ----- craft ------------------------------------------------------------- */
 
+// A solar array built as a real 3D assembly rather than one flat plane: a
+// photovoltaic cell substrate set INTO a raised metallic frame with a
+// longitudinal spar. The perimeter and spar stand proud of the cells, so under
+// the key light they throw thin shadow lines and the N8AO settles into their
+// inner corners — the array now reads as a machined, edged panel with genuine
+// relief instead of a sheet of cardboard. This is the main "flat -> volumetric"
+// upgrade shared by the satellite wings and the station arrays.
+function FramedArray({ w, h, panel, thickness = 0.05 }: { w: number; h: number; panel: THREE.Texture; thickness?: number }) {
+  const rail = Math.min(w, h) * 0.06 + 0.02 // frame bar cross-section
+  const proud = thickness + 0.04 // how far the frame stands off the cells (in Z)
+  const frameMat = { color: '#b9bcc4', metalness: 1, roughness: 0.3, envMapIntensity: 1.35 } as const
+  return (
+    <group>
+      {/* photovoltaic cell substrate, recessed inside the frame */}
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[w - rail, h - rail, thickness]} />
+        <meshStandardMaterial map={panel} metalness={0.45} roughness={0.4} emissive="#0a1a33" emissiveIntensity={0.08} />
+      </mesh>
+      {/* raised perimeter frame (top/bottom, then sides) */}
+      {[h / 2, -h / 2].map((y) => (
+        <mesh key={`r${y}`} position={[0, y, 0]} castShadow receiveShadow>
+          <boxGeometry args={[w + rail, rail, proud]} />
+          <meshStandardMaterial {...frameMat} />
+        </mesh>
+      ))}
+      {[w / 2, -w / 2].map((x) => (
+        <mesh key={`c${x}`} position={[x, 0, 0]} castShadow receiveShadow>
+          <boxGeometry args={[rail, h + rail, proud]} />
+          <meshStandardMaterial {...frameMat} />
+        </mesh>
+      ))}
+      {/* longitudinal spar splitting the cell field */}
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[rail * 0.7, h - rail, proud * 0.9]} />
+        <meshStandardMaterial color="#9a9ca2" metalness={1} roughness={0.34} envMapIntensity={1.2} />
+      </mesh>
+    </group>
+  )
+}
+
 // Crew spacecraft: a gumdrop command module (truncated cone) with a dark ablative
 // heat shield, cockpit windows and a docking ring, mounted on a foil-wrapped
 // service module with a radiator band and a main engine bell. A silhouette that
@@ -275,14 +323,7 @@ function Station({ foil, panel }: { foil: THREE.Texture; panel: THREE.Texture })
   const trussMat = { color: '#6a6c72', metalness: 1, roughness: 0.4, envMapIntensity: 1.0 } as const
   const Array4 = ({ x }: { x: number }) => (
     <group position={[x, 0, 0]}>
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={[1.5, 0.9, 0.03]} />
-        <meshStandardMaterial map={panel} metalness={0.4} roughness={0.4} emissive="#0a1a33" emissiveIntensity={0.08} />
-      </mesh>
-      <mesh position={[0, 0, 0.02]}>
-        <boxGeometry args={[1.5, 0.02, 0.05]} />
-        <meshStandardMaterial color="#c9ccd2" metalness={1} roughness={0.3} />
-      </mesh>
+      <FramedArray w={1.5} h={0.9} panel={panel} />
     </group>
   )
   return (
@@ -331,18 +372,11 @@ function SolarWing({ foil, panel, side }: { foil: THREE.Texture; panel: THREE.Te
         <cylinderGeometry args={[0.03, 0.03, 1.1, 12]} />
         <meshStandardMaterial map={foil} metalness={1} roughness={0.35} color="#d9a83c" />
       </mesh>
-      {/* two panel cells */}
+      {/* two framed 3D panel cells (raised metal frame + spar, real relief) */}
       {[-0.62, 0.62].map((oy) => (
-        <mesh key={oy} position={[0, oy, 0]} rotation={[0, 0, 0]}>
-          <boxGeometry args={[1.9, 1.15, 0.03]} />
-          <meshStandardMaterial
-            map={panel}
-            metalness={0.45}
-            roughness={0.4}
-            emissive="#0a1a33"
-            emissiveIntensity={0.08}
-          />
-        </mesh>
+        <group key={oy} position={[0, oy, 0]}>
+          <FramedArray w={1.9} h={1.15} panel={panel} />
+        </group>
       ))}
     </group>
   )
@@ -629,12 +663,14 @@ function Shuttle({ detail }: { detail?: THREE.Texture }) {
 
 function FlyBy({
   enc,
+  index,
   progress,
   foil,
   panel,
   detail,
 }: {
   enc: Encounter
+  index: number
   progress: MotionValue<number>
   foil: THREE.Texture
   panel: THREE.Texture
@@ -643,6 +679,10 @@ function FlyBy({
   const group = useRef<THREE.Group>(null)
   const spinner = useRef<THREE.Group>(null)
   const clock = useRef(Math.random() * 100)
+  // Counts the GPU warm-up frames this craft has been force-rendered for (see
+  // WARM_FRAMES). Once it's had its warm frames, normal scroll-driven culling
+  // takes over for the rest of the session.
+  const warm = useRef(0)
   // Every material on the craft, so we can fade the whole body UP out of the far
   // corridor haze as it streams in (and hard-restore full opacity for its hero
   // beat, so the in-focus pass is a perfect solid, never a ghost).
@@ -671,6 +711,28 @@ function FlyBy({
     clock.current += delta
     const g = group.current
     if (!g) return
+
+    // ── GPU WARM-UP SWEEP ────────────────────────────────────────────────
+    // For the first WARM_FRAMES rendered frames, ignore culling and park the
+    // craft in a near, in-frustum depth band (pulled toward centre so the whole
+    // body — wings, truss, arrays — rasterises, never edge-clipped). This forces
+    // its geometry upload, shadow-depth program compile and composer passes to
+    // happen NOW, behind the opacity:0 canvas, instead of hitching on the first
+    // real scroll into the warp. Fully opaque so it takes the solid render path.
+    if (warm.current < WARM_FRAMES) {
+      warm.current += 1
+      g.visible = true
+      g.position.set(enc.pos[0] * 0.5, enc.pos[1] * 0.5, -9 - index * 1.3)
+      for (let i = 0; i < mats.current.length; i++) {
+        mats.current[i].transparent = false
+        mats.current[i].opacity = 1
+      }
+      if (spinner.current) {
+        spinner.current.rotation.set(enc.tilt[0], enc.tilt[1], enc.tilt[2])
+      }
+      return
+    }
+
     const p = progress.get()
 
     // Fixed milestone coordinate, flown toward the lens by the shared scroll field.
@@ -769,7 +831,7 @@ function FieldScene({ progress }: { progress: MotionValue<number> }) {
       <directionalLight position={[0, 0.5, -9]} intensity={0.7} color="#bcd4ff" />
 
       {ENCOUNTERS.map((enc, i) => (
-        <FlyBy key={i} enc={enc} progress={progress} foil={foil} panel={panel} detail={detail} />
+        <FlyBy key={i} enc={enc} index={i} progress={progress} foil={foil} panel={panel} detail={detail} />
       ))}
 
       <Environment resolution={256}>
@@ -783,12 +845,9 @@ function FieldScene({ progress }: { progress: MotionValue<number> }) {
         {/* Contact/crevice ambient occlusion — the single biggest "solid, not a
             toy" cue: it darkens where wing meets fuselage, under the OMS pods,
             inside the dish, so parts read as one machined body instead of loose
-            floating primitives. */}
+            floating primitives. With the depth-of-field blur removed, this crisp
+            contact shading now carries the whole 3D-solidity read. */}
         <N8AO aoRadius={0.55} intensity={4.2} distanceFalloff={1.0} quality="high" color="#05060c" halfRes />
-        {/* Focus fixed at the corridor focal plane: blur is a pure function of a
-            body's TRUE distance now — soft far up-corridor, razor-sharp as it
-            crosses the plane, soft again as it rushes the lens. */}
-        <DepthOfField target={[0, 0, FOCUS_WORLD_Z]} focalLength={0.075} focusRange={0.18} bokehScale={2.1} height={560} />
         <Bloom intensity={0.4} luminanceThreshold={0.85} luminanceSmoothing={0.3} mipmapBlur radius={0.6} />
         <Vignette eskil={false} offset={0.25} darkness={0.42} />
       </EffectComposer>
@@ -814,6 +873,11 @@ export default function WarpField({ progress }: { progress: MotionValue<number> 
       >
         <Suspense fallback={null}>
           <FieldScene progress={progress} />
+          <Preload all />
+          {/* Report ready only AFTER the warm-up sweep (WARM_FRAMES) has run all
+              five craft through the shadow + composer paths, so the loader never
+              lifts onto a warp that still has to compile on the first scroll. */}
+          <WarmupProbe frames={WARM_FRAMES + 6} />
         </Suspense>
       </Canvas>
     </motion.div>

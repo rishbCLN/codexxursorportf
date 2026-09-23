@@ -1,11 +1,12 @@
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Environment, Lightformer } from '@react-three/drei'
+import { Environment, Lightformer, Preload } from '@react-three/drei'
 import { Suspense, useMemo, useRef } from 'react'
 import type { Ref } from 'react'
 import { useTransform, useVelocity, useSpring, cubicBezier } from 'framer-motion'
 import type { MotionValue } from 'framer-motion'
 import * as THREE from 'three'
 import { TUNNEL, warpScrollTravel } from './warp'
+import { WarmupProbe } from './WarmupProbe'
 
 /*
   Cinematic timeline, all driven by the pinned hero's scroll (heroProgress 0..1):
@@ -258,6 +259,8 @@ export default function SonicRing({ progress }: { progress: MotionValue<number> 
             <Lightformer form="ring" intensity={2.8} color="#ffffff" position={[0, 4, -5]} scale={4} />
             <Lightformer form="rect" intensity={0.6} color="#ffffff" position={[0, 0, 8]} scale={[14, 14, 1]} />
           </Environment>
+          <Preload all />
+          <WarmupProbe />
         </Suspense>
       </Canvas>
     </div>

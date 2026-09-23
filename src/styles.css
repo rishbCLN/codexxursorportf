@@ -41,16 +41,30 @@ button { font: inherit; }
 .metal-leaf { fill: url(#apple-metal); stroke: #666c70; stroke-width: .8; }
 .metal-leaf-vein { fill: none; stroke: rgba(45,49,52,.62); stroke-width: .8; }
 
-.loader { position: fixed; z-index: 10000; inset: 0; overflow: hidden; background: #050505; color: var(--paper); will-change: clip-path, opacity; }
-.loader-scene { position: absolute; inset: 0; overflow: hidden; }
-.loader-sky { position: absolute; inset: 0; overflow: hidden; }
-.loader-clouds { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 38%; filter: brightness(.5) saturate(.68) contrast(1.08); transform: scale(1.04); }
-.loader-sky-fade { position: absolute; z-index: 2; inset: 0; pointer-events: none; background: radial-gradient(120% 90% at 50% 28%, transparent 42%, rgba(5,5,5,.5) 100%), linear-gradient(180deg, rgba(5,5,5,.55) 0%, transparent 24%, transparent 52%, #050505 100%); }
+.loader { position: fixed; z-index: 10000; inset: 0; overflow: hidden; background: transparent; color: var(--paper); will-change: opacity; }
+/* The clouds sky, sliced into horizontal bands. Every slat shows the SAME
+   full-viewport image pinned to the top (via a negative offset set inline), so
+   together they read as one seamless graded sky — then peel away independently
+   for the hand-off. The loader itself is transparent so a parted slat reveals
+   the hero mounted beneath it. */
+.loader-curtain { position: absolute; inset: 0; z-index: 1; transform-origin: 50% 46%; will-change: transform; }
+.loader-slat { position: absolute; left: 0; width: 100%; overflow: hidden; background: #050505; will-change: transform, opacity; backface-visibility: hidden; }
+.loader-slat-img { position: absolute; left: 0; width: 100%; object-fit: cover; object-position: 50% 38%; filter: brightness(.5) saturate(.68) contrast(1.08); transform: scale(1.04); }
+/* Acid wipe-front on a slat's trailing edge: rides the band as it slides clear,
+   sweeping a bright vertical seam across the dark hero so the parting reads. */
+.loader-slat-edge { position: absolute; top: -1px; bottom: -1px; width: 2px; background: linear-gradient(180deg, transparent, var(--acid) 12%, #fff 50%, var(--acid) 88%, transparent); box-shadow: 0 0 18px 3px rgba(231,182,92,.6); opacity: 0; pointer-events: none; }
+.loader-sky-fade { position: absolute; z-index: 2; inset: 0; pointer-events: none; background: radial-gradient(120% 90% at 50% 28%, transparent 42%, rgba(5,5,5,.5) 100%), linear-gradient(180deg, rgba(5,5,5,.55) 0%, transparent 24%, transparent 52%, #050505 100%); will-change: opacity; }
+/* Acid seam-light that ignites across the base, then scans down the parting. */
+.loader-seam { position: absolute; z-index: 4; left: 0; right: 0; top: 0; height: 2px; margin-top: -1px; background: linear-gradient(90deg, transparent, var(--acid) 20%, #fff 50%, var(--acid) 80%, transparent); box-shadow: 0 0 22px 2px rgba(231,182,92,.7), 0 0 64px 10px rgba(231,182,92,.32); transform-origin: 50% 50%; opacity: 0; pointer-events: none; will-change: top, transform, opacity, filter; }
+/* Hot acid burst that blooms from the hero's centre the instant the curtain
+   breaks apart, then decays — screen-blended so it only adds light over the
+   dark hero, reading as released energy rather than a flat cross-fade. */
+.loader-flash { position: absolute; z-index: 5; inset: 0; opacity: 0; pointer-events: none; mix-blend-mode: screen; transform-origin: 50% 46%; background: radial-gradient(circle at 50% 46%, rgba(255,250,235,.95), rgba(231,182,92,.5) 30%, rgba(231,182,92,.12) 55%, transparent 72%); will-change: opacity, transform; }
 .loader-hud { position: absolute; z-index: 3; inset: 0; padding: 30px 3vw; pointer-events: none; display: flex; justify-content: space-between; align-items: flex-start; will-change: opacity, transform; }
 .loader-mark { display: flex; align-items: center; gap: 8px; font: 500 12px 'DM Mono', monospace; letter-spacing: .1em; }
 .loader-mark svg { color: var(--acid); }
 .loader-status { font: 500 10px 'DM Mono', monospace; letter-spacing: .24em; color: #9a988f; }
-.loader-counter { position: absolute; z-index: 3; left: 3vw; bottom: 5.5vh; display: flex; align-items: flex-end; gap: .12em; font: 500 clamp(72px, 15vw, 208px)/0.8 'DM Mono', monospace; letter-spacing: -.045em; color: var(--paper); font-variant-numeric: tabular-nums; will-change: opacity, transform; }
+.loader-counter { position: absolute; z-index: 3; left: 3vw; bottom: 5.5vh; display: flex; align-items: flex-end; gap: .12em; font: 500 clamp(72px, 15vw, 208px)/0.8 'DM Mono', monospace; letter-spacing: -.045em; color: var(--paper); font-variant-numeric: tabular-nums; transform-origin: left bottom; will-change: opacity, transform; }
 .loader-counter i { font-style: normal; font-size: .17em; letter-spacing: .06em; color: #9a988f; margin-bottom: 1.1em; }
 .loader-line { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(242,241,235,.14); overflow: hidden; will-change: opacity, transform; }
 .loader-line span { display: block; width: 100%; height: 100%; background: var(--acid); transform-origin: 0 50%; transform: scaleX(0); box-shadow: 0 0 12px rgba(231,182,92,.65); }

@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, useInView, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform, useVelocity } from 'framer-motion'
+import { AnimatePresence, motion, useAnimationFrame, useInView, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform, useVelocity } from 'framer-motion'
 import type { MotionValue, Variants } from 'framer-motion'
 import gsap from 'gsap'
 import {
@@ -31,6 +31,8 @@ import type { RenderedPdf } from './pdfPages'
 import { TOOLKIT_CLUSTERS, TOOLKIT_CLUSTER_OFFSET } from './toolkitData'
 import Lenis from 'lenis'
 import ScrollApple from './ScrollApple'
+import { whenHeroReady } from './heroReady'
+import { triggerReveal, useRevealed } from './reveal'
 import heroHandLeftUrl from './assets/hero-hand-left.png'
 import heroHandRightUrl from './assets/hero-hand-right.png'
 import cloudsUrl from './assets/clouds.png'
@@ -400,69 +402,165 @@ function decodeImage(src: string): Promise<void> {
   })
 }
 
+// How many horizontal bands the clouds curtain is sliced into for the parting
+// hand-off. Each slat shows its own strip of the SAME clouds image (positioned
+// with a negative offset) so together they read as one seamless sky while
+// loading, then peel away independently to reveal the hero beneath.
+const LOADER_SLATS = 7
+
 function Loader() {
   const [visible, setVisible] = useState(true)
   const rootRef = useRef<HTMLDivElement>(null)
   const numRef = useRef<HTMLSpanElement>(null)
   const lineRef = useRef<HTMLSpanElement>(null)
   const statusRef = useRef<HTMLDivElement>(null)
+  const seamRef = useRef<HTMLDivElement>(null)
+  const slatRefs = useRef<Array<HTMLDivElement | null>>([])
 
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const MIN = 900 // keep the loader on screen at least this long (no flash)
-    const MAX = 12000 // hard failsafe — never trap the user, even on a stall
+    // Deliberate, cinematic hold, extended so far more of the site streams into
+    // cache behind the loader. MIN is the floor the loader stays up even on a
+    // fully-warm cache; PACE_DUR is the envelope the 00->100 count climbs across
+    // so a repeat visit still reads as a real count-up instead of snapping to
+    // 100. MAX is the hard failsafe so a stall can never trap the user.
+    const MIN = 6000
+    const PACE_DUR = 5400
+    const MAX = 33000
     const start = performance.now()
     let cancelled = false
     let raf = 0
 
-    // Hero-critical work only: the 3D warp chunks, the hero-hand + cloud images,
-    // and web fonts. Below-the-fold (toolkit, research/PDF) keeps lazy-loading.
-    // These import() specifiers match the React.lazy ones, so the bundler
-    // dedupes — this resolves exactly when those chunks finish fetching/parsing.
-    const tasks: Promise<unknown>[] = [
-      import('./SonicRing'),
-      import('./WarpField'),
-      import('./SonicExitRing'),
-      decodeImage(cloudsUrl),
-      decodeImage(heroHandLeftUrl),
-      decodeImage(heroHandRightUrl),
-      document.fonts ? document.fonts.ready : Promise.resolve(),
+    // Hold the loader until ~90% of the WHOLE site is cached — not just the
+    // hero. We kick off every meaningful asset up front (the 3D warp chunks, the
+    // below-the-fold route chunks, every image, fonts) plus a GPU warm-up
+    // (whenHeroReady) that resolves once all three hero canvases have mounted +
+    // compiled + rendered a few frames behind the loader. Progress is weighted
+    // by rough payload size so the counter is honest, and the reveal waits for
+    // SITE_TARGET of that weight. The remaining ~10% (deepest tail, e.g. the PDF
+    // engine) keeps downloading in the background after the hero appears.
+    // import() specifiers match the React.lazy ones, so the bundler dedupes.
+    const SITE_TARGET = 0.9
+    const projectImages = projects.map((p) => p.image).filter(Boolean) as string[]
+    type LoadTask = { p: Promise<unknown>; w: number; hero: boolean }
+    const tasks: LoadTask[] = [
+      { p: import('./SonicRing'), w: 6, hero: true },
+      // WarpField's chunk statically pulls the shared three/drei graph (~915kB),
+      // so this promise represents the bulk of the 3D download.
+      { p: import('./WarpField'), w: 1160, hero: true },
+      { p: import('./SonicExitRing'), w: 4, hero: true },
+      { p: decodeImage(cloudsUrl), w: 1400, hero: true },
+      { p: decodeImage(heroHandLeftUrl), w: 795, hero: true },
+      { p: decodeImage(heroHandRightUrl), w: 640, hero: true },
+      { p: document.fonts ? document.fonts.ready : Promise.resolve(), w: 120, hero: true },
+      { p: whenHeroReady(), w: 200, hero: true },
+      { p: import('./ResearchArchive'), w: 12, hero: false },
+      { p: import('./ToolkitCortex'), w: 70, hero: false },
+      { p: import('./pdfPages'), w: 320, hero: false },
+      ...projectImages.map((src) => ({ p: decodeImage(src), w: 200, hero: false })),
     ]
-    const total = tasks.length
-    let completed = 0
-    tasks.forEach((t) => Promise.resolve(t).then(() => { completed++ }, () => { completed++ }))
-    let allDone = false
-    Promise.allSettled(tasks).then(() => { allDone = true })
+    const totalW = tasks.reduce((sum, t) => sum + t.w, 0)
+    let doneW = 0
+    let heroPending = tasks.reduce((n, t) => n + (t.hero ? 1 : 0), 0)
+    tasks.forEach((t) => {
+      const settle = () => { doneW += t.w; if (t.hero) heroPending -= 1 }
+      Promise.resolve(t.p).then(settle, settle)
+    })
 
     const reveal = () => {
       if (cancelled) return
-      if (statusRef.current) statusRef.current.textContent = 'READY'
       const finish = () => { if (!cancelled) setVisible(false) }
+      const slats = slatRefs.current.filter(Boolean) as HTMLDivElement[]
+
+      // Reduced-motion: no curtain choreography. Flip the hero on immediately and
+      // cross-fade the shell out.
       if (reduced) {
-        gsap.to(rootRef.current, { opacity: 0, duration: 0.5, ease: 'power2.out', onComplete: finish })
+        if (statusRef.current) statusRef.current.textContent = 'READY'
+        triggerReveal()
+        gsap.to(rootRef.current, { autoAlpha: 0, duration: 0.5, ease: 'power2.out', onComplete: finish })
         return
       }
-      const tl = gsap.timeline({ onComplete: finish })
-      // Counter + line lift away first, then a clip-path curtain wipes the whole
-      // panel upward, dissolving into the hero already mounted beneath it.
-      tl.to(['.loader-counter', '.loader-line', '.loader-hud'], { opacity: 0, y: -14, duration: 0.4, ease: 'power2.in' }, 0)
-      tl.fromTo(
-        rootRef.current,
-        { clipPath: 'inset(0% 0% 0% 0%)' },
-        { clipPath: 'inset(0% 0% 100% 0%)', duration: 0.95, ease: 'power4.inOut' },
-        0.18,
-      )
-      tl.to(rootRef.current, { opacity: 0, duration: 0.3, ease: 'power1.in' }, 0.9)
+
+      // Four-phase master timeline. Everything is placed on labels so the phases
+      // read top-to-bottom and stay easy to retune.
+      const tl = gsap.timeline({ defaults: { ease: 'power3.inOut' }, onComplete: finish })
+
+      // Phase 1 — LOCK-IN: the count settles at 100 with a subtle swell, LOADING
+      // flips to READY on a widening letter-spacing, and the acid seam ignites
+      // across the base as a full-width hairline.
+      tl.addLabel('lock', 0)
+        .call(() => { if (statusRef.current) statusRef.current.textContent = 'READY' }, undefined, 'lock')
+        .fromTo('.loader-counter', { scale: 1 }, { scale: 1.035, duration: 0.5, ease: 'power2.out' }, 'lock')
+        .fromTo('.loader-status', { letterSpacing: '0.24em', opacity: 0.55 }, { letterSpacing: '0.52em', opacity: 1, duration: 0.5 }, 'lock')
+        .fromTo(seamRef.current, { scaleX: 0, opacity: 0 }, { scaleX: 1, opacity: 1, duration: 0.55, ease: 'power2.out' }, 'lock+=0.05')
+
+      // Phase 2 — CHARGE: the HUD, counter and progress line lift out and fade,
+      // the acid line completes and the seam thickens/brightens — priming the
+      // parting.
+      tl.addLabel('charge', 'lock+=0.55')
+        .to(['.loader-counter', '.loader-hud'], { yPercent: -18, opacity: 0, duration: 0.55, ease: 'power2.in' }, 'charge')
+        .to('.loader-line span', { scaleX: 1, duration: 0.4, ease: 'power2.out' }, 'charge')
+        .to('.loader-line', { opacity: 0, duration: 0.3, ease: 'power1.in' }, 'charge+=0.35')
+        .to(seamRef.current, { scaleY: 2.4, filter: 'brightness(1.9)', duration: 0.45, ease: 'power2.out' }, 'charge')
+        .to('.loader-sky-fade', { opacity: 0, duration: 0.7, ease: 'power2.in' }, 'charge+=0.15')
+
+      // Phase 3 — CURTAIN: the clouds sky is wrenched apart like blast doors —
+      // bands parting from the CENTRE outward, alternate slabs driving off
+      // opposite sides while the whole sky pushes toward the lens and a hot acid
+      // burst blooms from the middle. triggerReveal() fires here so the hero text
+      // intro (see useRevealed) plays in lock-step. The hero is already mounted +
+      // GPU-warm underneath, so this is a pure, hitch-free visual hand-off.
+      tl.addLabel('curtain', 'charge+=0.5')
+        .call(() => triggerReveal(), undefined, 'curtain')
+        // The seam-light scans down the parting line.
+        .to(seamRef.current, { top: '100%', duration: 1.0, ease: 'power2.inOut' }, 'curtain')
+        // A hot acid burst blooms from the hero's centre the instant the curtain
+        // breaks, then decays — the parting is a release of energy, not a fade.
+        .fromTo('.loader-flash', { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.22, ease: 'power2.out' }, 'curtain')
+        .to('.loader-flash', { opacity: 0, duration: 0.85, ease: 'power2.in' }, 'curtain+=0.22')
+        // Each slat's trailing edge ignites, so a bright split races OUTWARD from
+        // the centre as the bands break apart.
+        .to('.loader-slat-edge', { opacity: 1, duration: 0.25, ease: 'power2.out', stagger: { each: 0.07, from: 'center' } }, 'curtain')
+        // The whole sky pushes toward the viewer as it splits — depth, not a
+        // flat wipe.
+        .fromTo('.loader-curtain', { scale: 1 }, { scale: 1.06, duration: 1.1, ease: 'power2.in' }, 'curtain')
+        // Blast doors: bands part from the centre outward, alternate slabs off
+        // opposite sides. Fully opaque, so it reads as a solid curtain torn
+        // apart rather than a dissolve.
+        .to(slats, {
+          xPercent: (i: number) => (i % 2 === 0 ? 122 : -122),
+          scale: 1.08,
+          duration: 1.05,
+          ease: 'power4.inOut',
+          stagger: { each: 0.07, from: 'center' },
+        }, 'curtain')
+        .to(seamRef.current, { opacity: 0, duration: 0.35, ease: 'power1.in' }, 'curtain+=0.8')
+
+      // Phase 4 — SETTLE: fade whatever shell remains and unmount.
+      tl.to(rootRef.current, { autoAlpha: 0, duration: 0.4, ease: 'power1.in' }, '>-0.15')
     }
 
     let shown = 0 // eased 0..1 displayed value; never runs backward
     const tick = (now: number) => {
       if (cancelled) return
       const elapsed = now - start
-      const target = completed / total
-      shown += (target - shown) * 0.08
-      const ready = (allDone && elapsed >= MIN) || elapsed >= MAX
-      if (ready) shown += (1 - shown) * 0.2 // ease the last stretch to 100
+      const siteProgress = doneW / totalW
+      // Rescale so the counter reads 100% exactly when SITE_TARGET of the site
+      // is cached (we don't make the user wait on the final ~10% tail).
+      const dataTarget = Math.min(1, siteProgress / SITE_TARGET)
+      // Time envelope: the count can't climb faster than PACE_DUR allows, so even
+      // an instant warm-cache load still shows a deliberate ~4s count-up rather
+      // than snapping to 100.
+      const paceCeil = Math.min(1, elapsed / PACE_DUR)
+      const target = Math.min(dataTarget, paceCeil)
+      shown += (target - shown) * 0.05
+      // Reveal only once the hero is fully loaded + warm AND the site hit its
+      // target AND we've held for MIN — or the failsafe fires. Hero-critical
+      // dominates the weight, so it's effectively always in before SITE_TARGET,
+      // but we also require the warm-up explicitly so the first scroll never
+      // compiles shaders on screen.
+      const ready = (heroPending <= 0 && siteProgress >= SITE_TARGET && elapsed >= MIN) || elapsed >= MAX
+      if (ready) shown += (1 - shown) * 0.12 // ease the last stretch to 100
       else shown = Math.min(shown, 0.99) // hold below 100 until truly ready
       if (shown > 0.999) shown = 1
       const pct = Math.round(shown * 100)
@@ -483,12 +581,28 @@ function Loader() {
 
   return (
     <div ref={rootRef} className="loader">
-      <div className="loader-scene">
-        <div className="loader-sky">
-          <img className="loader-clouds" src={cloudsUrl} alt="" draggable={false} />
-          <div className="loader-sky-fade" />
-        </div>
+      <div className="loader-curtain" aria-hidden="true">
+        {Array.from({ length: LOADER_SLATS }).map((_, i) => (
+          <div
+            key={i}
+            ref={(el) => { slatRefs.current[i] = el }}
+            className="loader-slat"
+            style={{ top: `${(i * 100) / LOADER_SLATS}%`, height: `calc(${100 / LOADER_SLATS}% + 1px)` }}
+          >
+            <img
+              className="loader-slat-img"
+              src={cloudsUrl}
+              alt=""
+              draggable={false}
+              style={{ height: '100vh', top: `${-(i * 100) / LOADER_SLATS}vh` }}
+            />
+            <i className="loader-slat-edge" style={i % 2 === 0 ? { left: 0 } : { right: 0 }} />
+          </div>
+        ))}
       </div>
+      <div className="loader-sky-fade" aria-hidden="true" />
+      <div className="loader-seam" ref={seamRef} aria-hidden="true" />
+      <div className="loader-flash" aria-hidden="true" />
       <div className="loader-hud">
         <div className="loader-mark"><Asterisk size={16} /> AR / 26</div>
         <div className="loader-status" ref={statusRef}>LOADING</div>
@@ -1595,6 +1709,69 @@ function Header() {
   )
 }
 
+// Monotonic exponential smoothing for a scroll-driven MotionValue. Unlike a
+// spring, it eases toward the target WITHOUT ever overshooting, so when the
+// scroll stops the value glides to rest instead of springing past and snapping
+// back. That backward correction is exactly the "jerk a few frames back" in the
+// warp — and it's amplified there because a tiny progress overshoot maps to a
+// large jump in corridor travel. tauMs is the feel dial (smaller = snappier).
+function useSmoothed(source: MotionValue<number>, tauMs = 80) {
+  const out = useMotionValue(source.get())
+  useAnimationFrame((_, delta) => {
+    const target = source.get()
+    const cur = out.get()
+    // Snap + stop churning once we're effectively at rest (0.00005 progress is
+    // sub-pixel here), so we don't thrash subscribers every idle frame.
+    if (Math.abs(target - cur) < 0.00005) {
+      if (cur !== target) out.set(target)
+      return
+    }
+    const alpha = 1 - Math.exp(-delta / tauMs)
+    out.set(cur + (target - cur) * alpha)
+  })
+  return out
+}
+
+// Hero intro entrance. These play in lock-step with the loader curtain parting
+// (gated on useRevealed / triggerReveal) rather than on mount — with a longer
+// loader, mount-time delays would finish behind the curtain and the hero would
+// appear frozen on hand-off. `custom` is the per-element stagger index.
+const HERO_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1]
+
+const heroFade: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  show: (i = 0) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: 0.12 + i * 0.09, duration: 0.9, ease: HERO_EASE },
+  }),
+}
+
+const heroMask: Variants = {
+  hidden: { y: '115%' },
+  show: (i = 0) => ({
+    y: 0,
+    transition: { delay: 0.22 + i * 0.11, duration: 1, ease: HERO_EASE },
+  }),
+}
+
+// Same rising mask as the sans lines, plus an acid brightness bloom that settles
+// as it lands — the one deliberate glow accent of the reveal. `filter` is safe
+// under the line's `overflow:hidden` mask (it adds no geometry to clip).
+const heroMaskGlow: Variants = {
+  hidden: { y: '115%', filter: 'brightness(2.6)' },
+  show: (i = 0) => ({
+    y: 0,
+    filter: 'brightness(1)',
+    transition: {
+      delay: 0.22 + i * 0.11,
+      duration: 1.05,
+      ease: HERO_EASE,
+      filter: { delay: 0.22 + i * 0.11 + 0.28, duration: 0.9, ease: 'easeOut' },
+    },
+  }),
+}
+
 function App() {
   const { scrollYProgress } = useScroll()
   const progress = useSpring(scrollYProgress, { stiffness: 100, damping: 25, restDelta: 0.001 })
@@ -1621,7 +1798,12 @@ function App() {
   // Piecewise-linear: [0..R_TOUCH] -> [0..0.46] (hands, same scroll distance),
   // then [R_TOUCH..1] -> [0.46..1] (dive + warp, now with room to breathe).
   const heroMapped = useTransform(heroRaw, [0, R_TOUCH, 1], [0, 0.46, 1])
-  const heroProgress = useSpring(heroMapped, { stiffness: 120, damping: 24, restDelta: 0.0002 })
+  // Monotonic smoothing (NOT a spring) so the sequence never springs past a
+  // scroll-stop and corrects backward. Lenis already adds inertia on top.
+  const heroProgress = useSmoothed(heroMapped, 80)
+  // Latches true the instant the loader curtain starts parting; drives the hero
+  // text entrance so it choreographs with the hand-off.
+  const revealed = useRevealed()
   // Ring stops ~0.60, we dive into the hole 0.60->0.80, then warp. The panel
   // (hero text + hands) scales up into the dive and fades out before the warp
   // so only the ring/stars remain for the journey.
@@ -1690,33 +1872,47 @@ function App() {
               <div className="hero-top">
                 <motion.p
                   className="hero-intro"
-                  initial={{ opacity: 0, y: 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1.35, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+                  variants={heroFade}
+                  custom={0}
+                  initial="hidden"
+                  animate={revealed ? 'show' : 'hidden'}
                 >
                   Independent creative developer in New York, designing and
                   engineering expressive, high-performance work for the web.
                 </motion.p>
-                <div className="hero-corner" aria-hidden="true">
+                <motion.div
+                  className="hero-corner"
+                  aria-hidden="true"
+                  variants={heroFade}
+                  custom={1}
+                  initial="hidden"
+                  animate={revealed ? 'show' : 'hidden'}
+                >
                   <span>40.7128° N</span>
                   <span>74.0060° W</span>
                   <LiveClock />
-                </div>
+                </motion.div>
               </div>
 
               <h1 className="hero-title">
                 <span className="hero-line">
-                  <motion.span initial={{ y: '115%' }} animate={{ y: 0 }} transition={{ delay: 1.55, duration: 1, ease: [0.16, 1, 0.3, 1] }}>Building digital</motion.span>
+                  <motion.span variants={heroMask} custom={0} initial="hidden" animate={revealed ? 'show' : 'hidden'}>Building digital</motion.span>
                 </span>
                 <span className="hero-line">
-                  <motion.span initial={{ y: '115%' }} animate={{ y: 0 }} transition={{ delay: 1.66, duration: 1, ease: [0.16, 1, 0.3, 1] }}>systems</motion.span>
+                  <motion.span variants={heroMask} custom={1} initial="hidden" animate={revealed ? 'show' : 'hidden'}>systems</motion.span>
                 </span>
                 <span className="hero-line hero-line-serif">
-                  <motion.span initial={{ y: '115%' }} animate={{ y: 0 }} transition={{ delay: 1.8, duration: 1.05, ease: [0.16, 1, 0.3, 1] }}>for the unreal.</motion.span>
+                  <motion.span variants={heroMaskGlow} custom={2} initial="hidden" animate={revealed ? 'show' : 'hidden'}>for the unreal.</motion.span>
                 </span>
               </h1>
 
-              <div className="hero-foot">
+              <motion.div
+                className="hero-foot"
+                variants={heroFade}
+                custom={3}
+                initial="hidden"
+                animate={revealed ? 'show' : 'hidden'}
+              >
                 <div className="hero-actions">
                   <MagneticLink href="#work" className="hero-cta">
                     <span>See the work</span>
@@ -1728,7 +1924,7 @@ function App() {
                   <span>Scroll</span>
                   <motion.i animate={{ scaleY: [0.15, 1, 0.15] }} transition={{ duration: 2.1, repeat: Infinity, ease: 'easeInOut' }} />
                 </a>
-              </div>
+              </motion.div>
             </motion.div>
 
             <SceneBoundary label="SonicRing">

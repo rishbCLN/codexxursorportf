@@ -1,9 +1,10 @@
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Environment, Lightformer } from '@react-three/drei'
+import { Environment, Lightformer, Preload } from '@react-three/drei'
 import { Suspense, useRef } from 'react'
 import { motion, useTransform, useMotionTemplate, cubicBezier } from 'framer-motion'
 import type { MotionValue } from 'framer-motion'
 import * as THREE from 'three'
+import { WarmupProbe } from './WarmupProbe'
 
 /*
   The Sonic EXIT ring — a wholly separate object from the entry ring, living on
@@ -127,6 +128,8 @@ export default function SonicExitRing({ progress }: { progress: MotionValue<numb
             <Lightformer form="ring" intensity={2.8} color="#ffffff" position={[0, 4, -5]} scale={4} />
             <Lightformer form="rect" intensity={0.6} color="#ffffff" position={[0, 0, 8]} scale={[14, 14, 1]} />
           </Environment>
+          <Preload all />
+          <WarmupProbe />
         </Suspense>
       </Canvas>
     </motion.div>
