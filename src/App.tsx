@@ -7,15 +7,16 @@ import {
   AudioLines,
   Box,
   Braces,
+  Check,
   ChevronLeft,
   ChevronRight,
   Code2,
+  Copy,
   Cpu,
   Database,
   Github,
   Linkedin,
   Mail,
-  MoveRight,
   Play,
   Plus,
   Search,
@@ -24,6 +25,7 @@ import {
   Wind,
   Zap,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import SceneBoundary from './SceneBoundary'
 import type { ChangeEvent, CSSProperties } from 'react'
@@ -42,6 +44,7 @@ const WarpField = lazy(() => import('./WarpField'))
 const SonicExitRing = lazy(() => import('./SonicExitRing'))
 const ResearchArchive = lazy(() => import('./ResearchArchive'))
 const ToolkitCortex = lazy(() => import('./ToolkitCortex'))
+const ContactConstellation = lazy(() => import('./ContactConstellation'))
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
 
@@ -1810,6 +1813,200 @@ const heroMaskGlow: Variants = {
   }),
 }
 
+// --- Contact ---------------------------------------------------------------
+
+const CONTACT_NODES: { key: string; label: string; handle: string; href: string; cta: string; Icon: LucideIcon }[] = [
+  { key: 'github', label: 'GitHub', handle: 'github.com/alexrivera', href: 'https://github.com', cta: 'View GitHub', Icon: Github },
+  { key: 'linkedin', label: 'LinkedIn', handle: 'in/alexrivera', href: 'https://linkedin.com', cta: 'Connect on LinkedIn', Icon: Linkedin },
+  { key: 'email', label: 'Email', handle: 'hello@alexrivera.dev', href: 'mailto:hello@alexrivera.dev', cta: 'Send an email', Icon: Mail },
+]
+
+const ctaVariants: Variants = {
+  // Hidden by default. On hover it EMERGES — fading up out of a soft blur and
+  // resolving to a crisp, solid button as it settles beneath the prism.
+  rest: { y: -20, scale: 0.94, opacity: 0, filter: 'blur(14px)' },
+  show: { y: 0, scale: 1, opacity: 1, filter: 'blur(0px)' },
+}
+
+function ContactNode({
+  node,
+  index,
+  active,
+  reduced,
+  revealed,
+  onEnter,
+  onLeave,
+}: {
+  node: (typeof CONTACT_NODES)[number]
+  index: number
+  active: number | null
+  reduced: boolean
+  revealed: boolean
+  onEnter: (i: number) => void
+  onLeave: () => void
+}) {
+  const ref = useRef<HTMLAnchorElement>(null)
+  const mx = useMotionValue(0)
+  const my = useMotionValue(0)
+  // Pointer position over the card drives a real 3D tilt on the glass button.
+  const rotX = useTransform(my, [-30, 30], [11, -11])
+  const rotY = useTransform(mx, [-30, 30], [-13, 13])
+  const external = node.href.startsWith('http')
+  const isActive = active === index
+
+  return (
+    <motion.a
+      ref={ref}
+      href={node.href}
+      className={`contact-node${isActive ? ' is-active' : ''}`}
+      target={external ? '_blank' : undefined}
+      rel={external ? 'noopener noreferrer' : undefined}
+      aria-label={`${node.label} — ${node.handle}`}
+      onMouseEnter={() => onEnter(index)}
+      onFocus={() => onEnter(index)}
+      onBlur={onLeave}
+      onMouseMove={(event) => {
+        const rect = ref.current?.getBoundingClientRect()
+        if (!rect || reduced) return
+        mx.set((event.clientX - rect.left - rect.width / 2) * 0.14)
+        my.set((event.clientY - rect.top - rect.height / 2) * 0.14)
+      }}
+      onMouseLeave={() => { mx.set(0); my.set(0); onLeave() }}
+    >
+      <span className="contact-node-frame" aria-hidden="true" />
+      <span className="contact-node-index" aria-hidden="true">0{index + 1}</span>
+      <span className="contact-node-glyph" aria-hidden="true"><node.Icon /></span>
+      <span className="contact-node-name">{node.label}</span>
+
+      <motion.span
+        className="contact-cta"
+        initial={false}
+        animate={revealed || isActive ? 'show' : 'rest'}
+        variants={ctaVariants}
+        transition={
+          reduced
+            ? { duration: 0.001 }
+            : revealed || isActive
+              ? { type: 'spring', stiffness: 420, damping: 24, delay: 0.06, opacity: { duration: 0.3, delay: 0.05 }, filter: { duration: 0.44, delay: 0.05, ease: [0.22, 1, 0.36, 1] } }
+              : { type: 'spring', stiffness: 600, damping: 32, opacity: { duration: 0.2 }, filter: { duration: 0.22 } }
+        }
+      >
+        <motion.span
+          className="contact-cta-face"
+          style={{ transformPerspective: 620, rotateX: rotX, rotateY: rotY, x: mx, y: my }}
+        >
+          <node.Icon />
+          <b>{node.cta}</b>
+        </motion.span>
+      </motion.span>
+
+      <span className="contact-node-handle">{node.handle}</span>
+    </motion.a>
+  )
+}
+
+function ContactSection() {
+  const ref = useRef<HTMLElement>(null)
+  const inView = useInView(ref, { once: true, margin: '200px 0px' })
+  const reduced = !!useReducedMotion()
+  const [active, setActive] = useState<number | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [coarse, setCoarse] = useState(false)
+  const [compact, setCompact] = useState(false)
+  const focus = useMotionValue(-1)
+
+  // The glass/bloom stage is a desktop-pointer experience: on touch or narrow
+  // screens (where the horizontal prism row can't track stacked cards, and
+  // transmission is costly) we skip the canvas and show flat cards instead, with
+  // the CTAs revealed up front since there's nothing to hover.
+  useEffect(() => {
+    const hoverMq = window.matchMedia('(hover: none), (pointer: coarse)')
+    const widthMq = window.matchMedia('(max-width: 760px)')
+    const sync = () => { setCoarse(hoverMq.matches); setCompact(widthMq.matches) }
+    sync()
+    hoverMq.addEventListener('change', sync)
+    widthMq.addEventListener('change', sync)
+    return () => {
+      hoverMq.removeEventListener('change', sync)
+      widthMq.removeEventListener('change', sync)
+    }
+  }, [])
+  const flat = coarse || compact
+  // Reveal the CTAs up front ONLY where there's no hover to trigger them (touch /
+  // narrow = `flat`). Reduced-motion must NOT force them visible — a reduced-motion
+  // desktop still has a mouse, so it stays hover-gated and just reveals instantly
+  // (see the CTA transition branch) instead of animating.
+  const revealed = flat
+  const showCanvas = inView && !flat
+
+  const enter = (i: number) => { setActive(i); focus.set(i) }
+  const leave = () => { setActive(null); focus.set(-1) }
+
+  async function copyEmail() {
+    try {
+      await navigator.clipboard.writeText('hello@alexrivera.dev')
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1800)
+    } catch {
+      /* clipboard unavailable — the mailto node still works */
+    }
+  }
+
+  return (
+    <section className={`contact${flat ? ' is-flat' : ''}`} id="contact" ref={ref}>
+      <div className="contact-inner">
+        <Reveal>
+          <div className="section-tag"><span>06</span> / START A PROJECT</div>
+          <h2 className="contact-title">HAVE AN IDEA<br />THAT <i>SHOULDN&rsquo;T</i><br />BE POSSIBLE?</h2>
+        </Reveal>
+
+        <p className="contact-lede">Pick a channel. Three ways to reach a real human.</p>
+
+        <div className="contact-stage">
+          <div className="contact-canvas-layer" aria-hidden="true">
+            {showCanvas && (
+              <SceneBoundary label="ContactConstellation">
+                <Suspense fallback={null}>
+                  <ContactConstellation focus={focus} reduced={reduced} />
+                </Suspense>
+              </SceneBoundary>
+            )}
+          </div>
+
+          <div className={`contact-grid${active != null ? ' is-engaged' : ''}`}>
+            {CONTACT_NODES.map((node, i) => (
+              <ContactNode key={node.key} node={node} index={i} active={active} reduced={reduced} revealed={revealed} onEnter={enter} onLeave={leave} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="contact-foot">
+        <div className="contact-foot-lead">
+          <button type="button" className={`contact-copy${copied ? ' is-copied' : ''}`} onClick={copyEmail}>
+            <span>{copied ? 'COPIED TO CLIPBOARD' : 'hello@alexrivera.dev'}</span>
+            {copied ? <Check /> : <Copy />}
+          </button>
+          <span className="contact-avail"><i /> AVAILABLE FOR NEW WORK &mdash; SEPT &rsquo;26</span>
+        </div>
+
+        <footer>
+          <a href="#top" className="footer-mark">AR<sup>26</sup></a>
+          <p>INDEPENDENT CREATIVE DEVELOPER<br />NEW YORK / WORKING GLOBALLY</p>
+          <div className="socials">
+            <a href="https://github.com" aria-label="GitHub" target="_blank" rel="noopener noreferrer"><Github /></a>
+            <a href="https://linkedin.com" aria-label="LinkedIn" target="_blank" rel="noopener noreferrer"><Linkedin /></a>
+            <a href="mailto:hello@alexrivera.dev" aria-label="Email"><Mail /></a>
+          </div>
+          <a href="#top" className="back-top">BACK TO TOP <ArrowUpRight /></a>
+        </footer>
+
+        <div className="contact-utility"><LiveClock /><span>&copy; 2026 ALEX RIVERA</span><SoundControl /></div>
+      </div>
+    </section>
+  )
+}
+
 function App() {
   const { scrollYProgress } = useScroll()
   const progress = useSpring(scrollYProgress, { stiffness: 100, damping: 25, restDelta: 0.001 })
@@ -2024,24 +2221,7 @@ function App() {
 
         <TechnologySection />
 
-        <section className="contact" id="contact">
-          <div className="contact-orbit" aria-hidden="true"><span>LET'S MAKE SOMETHING REAL • LET'S MAKE SOMETHING REAL • </span><Asterisk /></div>
-          <Reveal>
-            <div className="section-tag"><span>06</span> / START A PROJECT</div>
-            <h2>HAVE AN IDEA<br />THAT <i>SHOULDN'T</i><br />BE POSSIBLE?</h2>
-          </Reveal>
-          <div className="contact-actions">
-            <MagneticLink href="mailto:hello@alexrivera.dev" className="contact-link"><TextScramble>LET'S TALK</TextScramble> <MoveRight /></MagneticLink>
-            <div className="contact-status"><i /><span>RESPONSE TIME<br /><b>UNDER 48 HOURS</b></span></div>
-          </div>
-          <footer>
-            <a href="#top" className="footer-mark">AR<sup>26</sup></a>
-            <p>INDEPENDENT CREATIVE DEVELOPER<br />NEW YORK / WORKING GLOBALLY</p>
-            <div className="socials"><a href="https://github.com" aria-label="GitHub"><Github /></a><a href="https://linkedin.com" aria-label="LinkedIn"><Linkedin /></a><a href="mailto:hello@alexrivera.dev" aria-label="Email"><Mail /></a></div>
-            <a href="#top" className="back-top">BACK TO TOP <ArrowUpRight /></a>
-          </footer>
-          <div className="contact-utility"><LiveClock /><span>© 2026 ALEX RIVERA</span><SoundControl /></div>
-        </section>
+        <ContactSection />
       </main>
     </>
   )

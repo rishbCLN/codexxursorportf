@@ -372,17 +372,86 @@ header { position: absolute; z-index: 100; top: 0; left: 0; right: 0; height: 94
 .terminal em { color: var(--cyan); font-style: normal; }
 .terminal code i { color: #ff8ad4; font-style: normal; }
 
-.contact { position: relative; min-height: 100vh; padding: 140px 3vw 30px; overflow: hidden; background: var(--acid); color: var(--ink); }
-.contact .section-tag { color: var(--acid-deep); }
-.contact .section-tag span { color: #000; }
-.contact h2 { position: relative; z-index: 2; margin: 70px 0 55px; font-size: clamp(58px, 10.8vw, 168px); line-height: .76; letter-spacing: -.085em; }
-.contact h2 i { font-family: Instrument Serif, serif; font-weight: 400; }
-.contact-link { position: relative; z-index: 3; display: inline-flex; gap: 30px; align-items: center; padding-bottom: 8px; border-bottom: 3px solid #000; font-size: clamp(20px, 3vw, 45px); font-weight: 700; letter-spacing: -.04em; }
-.contact-link svg { width: 1.2em; height: 1.2em; transition: transform .3s; }
-.contact-link:hover svg { transform: translateX(10px); }
-.contact-orbit { position: absolute; right: -70px; top: 85px; width: 340px; height: 340px; border: 1px solid rgba(0,0,0,.25); border-radius: 50%; display: flex; justify-content: center; align-items: center; animation: spin 16s linear infinite; }
-.contact-orbit span { position: absolute; font: 500 9px DM Mono; letter-spacing: .22em; width: 120%; text-align: center; }
-.contact-orbit svg { width: 90px; height: 90px; stroke-width: .5; }
+/* ---- Contact · The Constellation (dark stage) --------------------------- */
+.contact { position: relative; min-height: 100vh; padding: clamp(90px, 12vh, 150px) 3vw 34px; overflow: hidden; background: #070510; color: var(--paper); isolation: isolate; }
+.contact-canvas-layer { position: absolute; inset: -22% 0 -14%; z-index: 0; pointer-events: none; }
+.contact-canvas { position: absolute; inset: 0; }
+.contact-canvas canvas { display: block; }
+
+.contact-inner { position: relative; z-index: 2; max-width: 1400px; margin: 0 auto; text-align: center; pointer-events: none; }
+.contact-inner .section-tag { justify-content: center; color: rgba(242,241,235,.55); pointer-events: auto; }
+.contact-inner .section-tag span { color: var(--acid); }
+.contact-title { position: relative; margin: clamp(20px, 3.4vh, 44px) 0 0; font-size: clamp(44px, 8vw, 124px); line-height: .84; letter-spacing: -.06em; font-weight: 800; text-transform: uppercase; }
+.contact-title i { font-family: 'Instrument Serif', serif; font-weight: 400; font-style: italic; text-transform: none; color: var(--acid); }
+.contact-lede { margin: 20px auto 0; max-width: 42ch; font: 500 clamp(11px, 1.05vw, 14px)/1.55 'DM Mono', monospace; letter-spacing: .05em; text-transform: uppercase; color: rgba(242,241,235,.55); }
+.contact-lede::after { content: ''; display: block; width: 36px; height: 1px; margin: 20px auto 0; background: linear-gradient(90deg, transparent, var(--acid), transparent); opacity: .6; }
+
+/* The stage boxes the canvas layer and the DOM grid to the exact same rectangle,
+   so each prism (placed at a third of the canvas width) sits dead-centre over its card. */
+.contact-stage { position: relative; max-width: 1080px; margin: clamp(34px, 6vh, 74px) auto 0; }
+.contact-stage::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(120% 82% at 50% 40%, transparent 50%, rgba(7,5,16,.5) 100%); }
+.contact-grid { position: relative; z-index: 2; display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(8px, 1.6vw, 26px); }
+.contact-node { position: relative; z-index: 2; pointer-events: auto; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 14px; min-height: clamp(300px, 44vh, 440px); padding: 26px 12px 30px; border-radius: 22px; color: var(--paper); text-align: center; isolation: isolate; transition: transform .55s cubic-bezier(.22,1,.36,1), opacity .5s ease, filter .5s ease; }
+/* the channel card — a quiet glass bezel at rest, ignited + elevated on focus.
+   Present at rest now (not opacity:0) so the three channels read as intentional
+   architecture rather than text floating in the dark. */
+.contact-node-frame { position: absolute; inset: 0; z-index: -1; border: 1px solid rgba(242,241,235,.09); border-radius: 22px; background: linear-gradient(180deg, rgba(242,241,235,.05), rgba(242,241,235,0) 58%), radial-gradient(130% 82% at 50% 0%, rgba(231,182,92,.05), transparent 62%); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 24px 60px -46px rgba(0,0,0,.85); opacity: 1; transition: opacity .45s ease, border-color .45s ease, box-shadow .45s ease, background .45s ease; }
+/* a fine top hairline that spans the bezel and ignites acid on focus */
+.contact-node-frame::before { content: ''; position: absolute; left: 20px; right: 20px; top: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(242,241,235,.24), transparent); opacity: .55; transition: opacity .45s ease, background .45s ease; }
+.contact-node.is-active .contact-node-frame { border-color: rgba(231,182,92,.34); background: linear-gradient(180deg, rgba(231,182,92,.07), rgba(242,241,235,0) 60%), radial-gradient(130% 82% at 50% 0%, rgba(231,182,92,.12), transparent 62%); box-shadow: 0 2px 8px rgba(0,0,0,.5), 0 40px 82px -40px rgba(0,0,0,.7), 0 0 54px -14px rgba(231,182,92,.28), inset 0 1px 0 rgba(255,255,255,.08), inset 0 0 72px rgba(231,182,92,.05); }
+.contact-node.is-active .contact-node-frame::before { opacity: 1; background: linear-gradient(90deg, transparent, rgba(231,182,92,.62), transparent); }
+/* editorial index — ties the three channels into one numbered set */
+.contact-node-index { position: absolute; top: 18px; left: 20px; z-index: 2; font: 600 10px/1 'DM Mono', monospace; letter-spacing: .24em; color: rgba(242,241,235,.32); transition: color .4s ease; }
+.contact-node.is-active .contact-node-index { color: var(--acid); }
+/* focus choreography: the hovered channel rises, its siblings recede + dim so the
+   eye is pulled to one place at a time (mirrors the 3D prism focus in the canvas) */
+.contact:not(.is-flat) .contact-node.is-active { transform: translateY(-6px); }
+.contact-grid.is-engaged .contact-node:not(.is-active) { opacity: .5; filter: saturate(.75) brightness(.9); }
+.contact-node-glyph { display: grid; place-items: center; width: 38px; height: 38px; color: rgba(242,241,235,.5); transition: color .4s ease, transform .4s ease; }
+.contact-node-glyph svg { width: 20px; height: 20px; }
+.contact-node.is-active .contact-node-glyph { color: var(--acid); transform: translateY(-4px); }
+.contact:not(.is-flat) .contact-node-glyph { display: none; }
+.contact-node-name { font: 800 clamp(15px, 1.5vw, 21px)/1 Inter, sans-serif; letter-spacing: -.02em; }
+.contact-node-handle { order: 3; font: 500 10px/1 'DM Mono', monospace; letter-spacing: .1em; color: rgba(242,241,235,.4); transition: color .4s ease; }
+.contact-node.is-active .contact-node-handle { color: var(--acid-soft); }
+
+/* the CTA — a shard of dark liquid glass that drops from the prism above,
+   tethered by a fine acid thread. All motion here is hover/focus-triggered. */
+.contact-cta { order: 2; position: relative; display: inline-flex; transform-style: preserve-3d; will-change: transform, opacity, filter; }
+.contact-cta::before { content: ''; position: absolute; left: 50%; bottom: 100%; width: 1px; height: 30px; transform: translate(-50%, 3px) scaleY(0); transform-origin: top center; background: linear-gradient(var(--acid), transparent); opacity: 0; pointer-events: none; transition: transform .34s cubic-bezier(.22,1,.36,1) .05s, opacity .3s ease; }
+.contact-node.is-active .contact-cta::before { transform: translate(-50%, 0) scaleY(1); opacity: .55; }
+.contact-cta-face { position: relative; display: inline-flex; align-items: center; gap: 10px; padding: 14px 24px; border-radius: 100px; overflow: hidden; transform-style: preserve-3d; will-change: transform; color: var(--paper); font: 700 13px/1 Inter, sans-serif; letter-spacing: -.01em; background: linear-gradient(158deg, rgba(30,25,42,.55), rgba(10,8,18,.42)); border: 1px solid rgba(231,182,92,.22); -webkit-backdrop-filter: blur(14px) saturate(1.15); backdrop-filter: blur(14px) saturate(1.15); box-shadow: inset 0 1.5px 0 rgba(255,255,255,.14), inset 0 -10px 22px rgba(0,0,0,.42), 0 2px 0 rgba(12,9,18,.9), 0 4px 0 rgba(10,8,15,.86), 0 6px 1px rgba(7,5,11,.8), 0 11px 18px -5px rgba(0,0,0,.6), 0 24px 42px -18px rgba(0,0,0,.72); transition: color .4s ease, border-color .4s ease, background .4s ease, box-shadow .4s ease; }
+/* a warm acid bloom sitting just inside the rim, lit only on hover/focus */
+.contact-cta-face::before { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: radial-gradient(130% 170% at 50% -45%, rgba(231,182,92,.3), transparent 60%); opacity: 0; transition: opacity .4s ease; }
+.contact-node.is-active .contact-cta-face { color: #fff; border-color: rgba(231,182,92,.5); background: linear-gradient(158deg, rgba(42,34,54,.6), rgba(16,12,24,.48)); box-shadow: inset 0 1.5px 0 rgba(255,255,255,.18), inset 0 -10px 22px rgba(0,0,0,.36), 0 2px 0 rgba(120,92,40,.6), 0 4px 0 rgba(74,56,26,.55), 0 6px 1px rgba(42,32,15,.5), 0 13px 22px -6px rgba(0,0,0,.6), 0 24px 46px -18px rgba(231,182,92,.42), 0 0 28px -6px rgba(231,182,92,.34); }
+.contact-node.is-active .contact-cta-face::before { opacity: 1; }
+.contact-cta-face b { position: relative; z-index: 1; font-weight: 700; }
+.contact-cta-face svg { position: relative; z-index: 1; width: 15px; height: 15px; color: var(--acid); transition: transform .35s cubic-bezier(.22,1,.36,1); }
+.contact-node.is-active .contact-cta-face svg { transform: scale(1.08); }
+
+/* footer + utility recolour for the dark stage */
+.contact-foot { position: relative; z-index: 2; max-width: 1500px; margin: 0 auto; }
+.contact-foot-lead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; margin-top: clamp(48px, 9vh, 104px); }
+.contact-copy { display: inline-flex; align-items: center; gap: 12px; padding: 12px 18px; border: 1px solid var(--line); border-radius: 100px; background: rgba(242,241,235,.03); color: var(--paper); font: 500 12px/1 'DM Mono', monospace; letter-spacing: .04em; transition: border-color .3s ease, color .3s ease, background .3s ease; }
+.contact-copy:hover { border-color: rgba(231,182,92,.5); color: var(--acid); background: rgba(231,182,92,.06); }
+.contact-copy.is-copied { border-color: var(--acid); color: var(--acid); }
+.contact-copy svg { width: 15px; height: 15px; }
+.contact-avail { display: inline-flex; align-items: center; gap: 10px; font: 500 10px/1 'DM Mono', monospace; letter-spacing: .16em; color: rgba(242,241,235,.6); }
+.contact-avail i { width: 7px; height: 7px; border-radius: 50%; background: var(--acid); box-shadow: 0 0 10px var(--acid); animation: pulse 1.6s infinite; }
+.contact-foot footer { border-top-color: var(--line); }
+.contact-foot .socials a { border-color: rgba(242,241,235,.28); }
+.contact-foot .socials a:hover { background: var(--acid); color: var(--ink); }
+.contact-foot .footer-mark:hover, .contact-foot .back-top:hover { color: var(--acid); }
+.contact-utility { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--line); font: 500 9px/1 'DM Mono', monospace; letter-spacing: .14em; color: rgba(242,241,235,.55); }
+
+/* flat fallback — no WebGL stage (touch / narrow / reduced): real cards */
+.contact.is-flat { min-height: auto; }
+.contact.is-flat::after { display: none; }
+.contact.is-flat .contact-node { min-height: 0; justify-content: center; gap: 16px; padding: 32px 20px; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(180deg, rgba(242,241,235,.05), rgba(242,241,235,.015)); }
+.contact.is-flat .contact-node-frame { display: none; }
+.contact.is-flat .contact-node.is-active { border-color: rgba(231,182,92,.32); box-shadow: 0 2px 6px rgba(0,0,0,.45), 0 24px 50px -30px rgba(0,0,0,.6), 0 0 42px -14px rgba(231,182,92,.3); }
+.contact.is-flat .contact-node-glyph { width: 62px; height: 62px; border-radius: 16px; background: rgba(231,182,92,.09); color: var(--acid); }
+.contact.is-flat .contact-node-glyph svg { width: 28px; height: 28px; }
 footer { margin-top: 180px; border-top: 1px solid rgba(0,0,0,.3); padding-top: 25px; display: grid; grid-template-columns: 1fr 1fr auto auto; align-items: end; gap: 5vw; }
 .footer-mark { font-size: 50px; font-weight: 900; letter-spacing: -.1em; line-height: .8; }
 .footer-mark sup { font: 400 8px DM Mono; vertical-align: top; letter-spacing: 0; margin-left: 4px; }
@@ -807,9 +876,12 @@ footer p { margin: 0; font: 500 9px/1.6 DM Mono; letter-spacing: .08em; }
   .terminal { margin-top: 80px; box-shadow: 8px 8px 0 var(--acid-strong); }
   .terminal pre { padding: 22px 14px; font-size: clamp(8px,2.65vw,10px); }
   .terminal .line { padding-right: 8px; }
-  .contact { padding: 100px 18px 24px; min-height: 800px; }
-  .contact h2 { margin-top: 55px; font-size: 15vw; }
-  .contact-orbit { width: 220px; height: 220px; opacity: .35; }
+  .contact { padding: 100px 18px 24px; min-height: auto; }
+  .contact-title { margin-top: 30px; font-size: 13.5vw; }
+  .contact-stage { max-width: 440px; margin-top: 40px; }
+  .contact-stage::after { display: none; }
+  .contact-grid { grid-template-columns: 1fr; gap: 10px; }
+  .contact-node { min-height: 260px; gap: 12px; padding: 20px 12px 24px; }
   footer { margin-top: 150px; gap: 20px; grid-template-columns: 1fr auto; }
   .back-top { display: none; }
   .pointer-glow { display: none; }
@@ -876,7 +948,7 @@ footer p { margin: 0; font: 500 9px/1.6 DM Mono; letter-spacing: .08em; }
   .dispatch-grid { min-height: 700px; padding: 100px 18px; grid-template-columns: 1fr; }
   .dispatch-copy h2 { font-size: 14vw; }
   .dispatch-form input { min-width: 0; width: 100%; }
-  .contact-actions { align-items: flex-start; flex-direction: column; gap: 50px; }
+  .contact-foot-lead { align-items: flex-start; flex-direction: column; gap: 22px; }
   .contact-utility { gap: 12px; font-size: 7px; }
 }
 
@@ -908,7 +980,7 @@ footer p { margin: 0; font: 500 9px/1.6 DM Mono; letter-spacing: .08em; }
   .recognition-list > div { grid-template-columns: 34px minmax(0,1fr) auto; gap: 10px; }
   .testimonial-section { min-height: 560px; }
   .testimonial-section blockquote footer { display: flex; }
-  .contact-link { gap: 14px; }
+  .contact-cta-face { padding: 12px 18px; }
   footer { align-items: center; }
   .contact-utility { flex-wrap: wrap; }
 }
