@@ -30,7 +30,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import SceneBoundary from './SceneBoundary'
 import type { ChangeEvent, CSSProperties } from 'react'
 import type { RenderedPdf } from './pdfPages'
-import { TOOLKIT_CLUSTERS, TOOLKIT_CLUSTER_OFFSET } from './toolkitData'
+import { TOOLKIT_CLUSTERS, TOOLKIT_TOOLS } from './toolkitData'
 import Lenis from 'lenis'
 import ScrollApple from './ScrollApple'
 import { whenHeroReady } from './heroReady'
@@ -1359,24 +1359,15 @@ function PrinciplesSection() {
 }
 
 function TechnologySection() {
-  // Scroll advances a continuous focus across the four lobes; hover focuses a
-  // single tool. Both feed the WebGL "cortex" through MotionValues so the glass
-  // stays in lockstep with the crisp DOM text on top.
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [activeCluster, setActiveCluster] = useState(0)
-  const clusterRef = useRef(0)
-  const [activeTech, setActiveTech] = useState(TOOLKIT_CLUSTERS[0].items[0].name)
-  const activeNode = useMotionValue(0)
-  const accent = useMotionValue(TOOLKIT_CLUSTERS[0].accent)
-
-  const last = TOOLKIT_CLUSTERS.length - 1
-  const { scrollYProgress } = useScroll({ target: scrollRef, offset: ['start start', 'end end'] })
-  const meterScale = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.35 })
+  // A single ambient orbit of every tool logo around the glass "mind". Hovering
+  // (or tapping) a tool chip pulls its logo forward; nothing is scroll-driven,
+  // and there are no lobe "phases" — one continuous constellation.
+  const [activeTech, setActiveTech] = useState<string | null>(null)
+  const activeNode = useMotionValue(-1) // flat index of the hovered tool, -1 = none
+  const accent = useMotionValue(TOOLKIT_CLUSTERS[0].accent) // static amber core
 
   // Viewport gate: the orbiting-logos cortex only holds its WebGL context while
-  // the section is near the viewport, then unmounts and releases it. Observed on
-  // the STABLE OUTER section (not the pinned `.toolkit-scroll` track) so the gate
-  // flips reliably instead of leaving the stage blank.
+  // the section is near the viewport, then unmounts and releases it.
   const [sceneRef, sceneInView] = useNearViewport<HTMLElement>()
 
   // On touch/coarse pointers there's no real hover cursor, and scroll-driven
@@ -1391,94 +1382,55 @@ function TechnologySection() {
     return () => mq.removeEventListener('change', sync)
   }, [])
 
-  useMotionValueEvent(scrollYProgress, 'change', (value) => {
-    const next = Math.round(clamp01(value) * last)
-    if (next !== clusterRef.current) {
-      clusterRef.current = next
-      setActiveCluster(next)
-      accent.set(TOOLKIT_CLUSTERS[next].accent)
-      setActiveTech(TOOLKIT_CLUSTERS[next].items[0].name)
-      activeNode.set(TOOLKIT_CLUSTER_OFFSET[next])
-    }
-  })
-
-  function focusTool(cluster: number, local: number, name: string) {
+  function focusTool(flatIndex: number, name: string) {
     setActiveTech(name)
-    activeNode.set(TOOLKIT_CLUSTER_OFFSET[cluster] + local)
-    accent.set(TOOLKIT_CLUSTERS[cluster].accent)
+    activeNode.set(flatIndex)
   }
-
-  const cluster = TOOLKIT_CLUSTERS[activeCluster]
+  function clearTool() {
+    setActiveTech(null)
+    activeNode.set(-1)
+  }
 
   return (
     <section className="technology-section" id="toolkit" ref={sceneRef}>
-      <div className="toolkit-scroll" ref={scrollRef}>
-        {TOOLKIT_CLUSTERS.map((_, index) => (
-          <span
-            key={index}
-            id={`toolkit-lobe-${index}`}
-            className="toolkit-marker"
-            aria-hidden="true"
-            style={{ top: `${last ? (index / last) * 80 : 0}%` }}
-          />
-        ))}
+      <div className="toolkit-stage">
+        {sceneInView && (
+          <SceneBoundary
+            label="ToolkitCortex"
+            fallback={<div className="toolkit-canvas scene-poster scene-poster--toolkit" aria-hidden="true" />}
+          >
+            <Suspense fallback={null}>
+              <ToolkitCortex active={activeNode} accent={accent} coarse={coarse} />
+            </Suspense>
+          </SceneBoundary>
+        )}
 
-        <div className="toolkit-stage">
-          {sceneInView && (
-            <SceneBoundary
-              label="ToolkitCortex"
-              fallback={<div className="toolkit-canvas scene-poster scene-poster--toolkit" aria-hidden="true" />}
-            >
-              <Suspense fallback={null}>
-                <ToolkitCortex progress={scrollYProgress} active={activeNode} accent={accent} coarse={coarse} />
-              </Suspense>
-            </SceneBoundary>
-          )}
+        <div className="toolkit-head">
+          <div className="section-tag"><span>05</span> / TOOLKIT</div>
+          <h2>TOOLS, CHOSEN<br /><i>WITH INTENTION.</i></h2>
+        </div>
 
-          <div className="toolkit-meter" aria-hidden="true"><motion.i style={{ scaleX: meterScale }} /></div>
-
-          <div className="toolkit-head">
-            <div className="section-tag"><span>05</span> / TOOLKIT</div>
-            <h2>TOOLS, CHOSEN<br /><i>WITH INTENTION.</i></h2>
+        <div className="toolkit-reader">
+          <div className="toolkit-chips">
+            {TOOLKIT_TOOLS.map((tool, flatIndex) => {
+              const isActive = activeTech === tool.name
+              return (
+                <button
+                  key={tool.name}
+                  className={`toolkit-chip${isActive ? ' is-active' : ''}`}
+                  aria-pressed={isActive}
+                  onMouseEnter={() => focusTool(flatIndex, tool.name)}
+                  onMouseLeave={clearTool}
+                  onFocus={() => focusTool(flatIndex, tool.name)}
+                  onBlur={clearTool}
+                  onClick={() => focusTool(flatIndex, tool.name)}
+                >
+                  <span className="toolkit-chip-name">{tool.name}</span>
+                  <i className="toolkit-chip-dot" />
+                </button>
+              )
+            })}
           </div>
-
-          <div className="toolkit-reader" style={{ '--lobe-accent': cluster.accent } as CSSProperties}>
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={cluster.name}
-                className="toolkit-reader-inner"
-                initial={{ opacity: 0, y: 18 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -14 }}
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <div className="toolkit-reader-meta">
-                  <span>{String(activeCluster + 1).padStart(2, '0')} / {String(TOOLKIT_CLUSTERS.length).padStart(2, '0')}</span>
-                  <span>{cluster.name}</span>
-                </div>
-                <div className="toolkit-chips">
-                  {cluster.items.map((tool, local) => {
-                    const isActive = activeTech === tool.name
-                    return (
-                      <button
-                        key={tool.name}
-                        className={`toolkit-chip${isActive ? ' is-active' : ''}`}
-                        aria-pressed={isActive}
-                        onMouseEnter={() => focusTool(activeCluster, local, tool.name)}
-                        onFocus={() => focusTool(activeCluster, local, tool.name)}
-                        onClick={() => focusTool(activeCluster, local, tool.name)}
-                      >
-                        <span className="toolkit-chip-name">{tool.name}</span>
-                        <i className="toolkit-chip-dot" />
-                      </button>
-                    )
-                  })}
-                </div>
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-          <div className="toolkit-scrollcue" aria-hidden="true"><span>SCROLL</span></div>
         </div>
       </div>
     </section>
@@ -2064,12 +2016,11 @@ function ContactSection() {
     }
   }, [])
   const flat = coarse || compact
-  // Creative showcase: the 3D stage runs on every desktop, even when the OS
-  // reports a coarse/dual pointer. On a genuinely narrow PHONE (`compact`) we
-  // drop the canvas entirely — the prism row can't track the vertical flat-card
-  // stack there and would just float behind it oversized — and rely on the flat
-  // cards. Tablet + desktop keep the 3D prisms (now aspect-fit scaled).
-  const showCanvas = canvasInView && !compact
+  // Creative showcase: the 3D prisms now run on EVERY device, phone included —
+  // they sit behind the flat stacked cards as the ambient 3D on touch/narrow
+  // screens, and drive the interactive prism row on desktop. `compact` is passed
+  // to the scene so it can tighten the prism spread + scale for a narrow frame.
+  const showCanvas = canvasInView
 
   const enter = (i: number) => { setActive(i); focus.set(i) }
   const leave = () => { setActive(null); focus.set(-1) }
@@ -2126,7 +2077,7 @@ function ContactSection() {
                 fallback={<div className="contact-canvas scene-poster scene-poster--contact" aria-hidden="true" />}
               >
                 <Suspense fallback={null}>
-                  <ContactConstellation focus={focus} reduced={reduced} />
+                  <ContactConstellation focus={focus} reduced={reduced} compact={compact} />
                 </Suspense>
               </SceneBoundary>
             )}

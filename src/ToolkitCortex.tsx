@@ -3,7 +3,6 @@ import { useWebGLResilience } from './useWebGLResilience'
 import { Environment, Lightformer, MeshTransmissionMaterial } from '@react-three/drei'
 import { Suspense, useMemo, useRef } from 'react'
 import type { MutableRefObject } from 'react'
-import { useSpring, useTransform } from 'framer-motion'
 import type { MotionValue } from 'framer-motion'
 import * as THREE from 'three'
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
@@ -198,13 +197,11 @@ function displayColor(hex: string): THREE.Color {
 
 function Logo({
   index,
-  focus,
   active,
   coarse,
   fit,
 }: {
   index: number
-  focus: MotionValue<number>
   active: MotionValue<number>
   coarse: boolean
   fit: MutableRefObject<number>
@@ -220,8 +217,8 @@ function Logo({
   const color = useMemo(() => displayColor(icon.hex), [icon.hex])
   const seed = useMemo(() => Math.random() * 10, [])
 
-  const scaleAmt = useRef(0.7)
-  const emissiveAmt = useRef(0.15)
+  const scaleAmt = useRef(0.9)
+  const emissiveAmt = useRef(0.3)
   const offset = useRef(new THREE.Vector3())
   const velocity = useRef(new THREE.Vector3())
 
@@ -230,8 +227,8 @@ function Logo({
     if (!g) return
     const dt = Math.min(delta, 0.05) // clamp so a tab-switch stutter can't fling logos
     const t = state.clock.elapsedTime
-    const activeCluster = Math.round(THREE.MathUtils.clamp(focus.get(), 0, 3))
-    const isLobe = ring === activeCluster
+    // Only per-tool hover focus survives (the 4-phase lobe cycling is gone): every
+    // logo orbits at one uniform scale, and just the hovered one leans forward.
     const isHot = Math.round(active.get()) === index
     const k = Math.min(1, dt * 6)
 
@@ -241,10 +238,10 @@ function Logo({
     const r = RING_RADIUS[ring]
     _pos.set(Math.cos(angle) * r, 0, Math.sin(angle) * r).applyMatrix4(RING_MATRIX[ring])
 
-    // Face the camera so the logo stays readable; hot / active-lobe logos lean
-    // a touch further toward the viewer.
+    // Face the camera so the logo stays readable; the hovered logo leans a touch
+    // further toward the viewer.
     _dir.copy(CAM).sub(_pos).normalize()
-    const pull = isHot ? 0.95 : isLobe ? 0.25 : 0
+    const pull = isHot ? 0.95 : 0
     _pos.addScaledVector(_dir, pull)
 
     // --- Cursor push: if the pointer sweeps near this logo on screen, shove it
@@ -290,8 +287,8 @@ function Logo({
     // gentle idle sway so bevels catch the light
     g.rotateZ(Math.sin(t * 0.6 + seed) * 0.08)
 
-    const targetScale = isHot ? 1.5 : isLobe ? 1.02 : 0.62
-    const targetEmissive = isHot ? 1.15 : isLobe ? 0.5 : 0.12
+    const targetScale = isHot ? 1.5 : 1.0
+    const targetEmissive = isHot ? 1.15 : 0.3
     scaleAmt.current = THREE.MathUtils.lerp(scaleAmt.current, targetScale, k)
     emissiveAmt.current = THREE.MathUtils.lerp(emissiveAmt.current, targetEmissive, k)
     g.scale.setScalar(scaleAmt.current)
@@ -318,28 +315,17 @@ function Logo({
 
 // --- Faint guide ring showing each orbit path ----------------------------
 
-function RingGuide({ ring, focus }: { ring: number; focus: MotionValue<number> }) {
-  const mat = useRef<THREE.MeshBasicMaterial>(null)
+function RingGuide({ ring }: { ring: number }) {
   const accent = useMemo(() => CLUSTER_COLORS[ring], [ring])
-  const opacity = useRef(0.05)
-
-  useFrame((_, delta) => {
-    if (!mat.current) return
-    const activeCluster = Math.round(THREE.MathUtils.clamp(focus.get(), 0, 3))
-    const target = ring === activeCluster ? 0.32 : 0.06
-    opacity.current = THREE.MathUtils.lerp(opacity.current, target, Math.min(1, delta * 4))
-    mat.current.opacity = opacity.current
-  })
 
   return (
     <group rotation={RING_TILT[ring]}>
       <mesh rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[RING_RADIUS[ring], 0.012, 8, 160]} />
         <meshBasicMaterial
-          ref={mat}
           color={accent}
           transparent
-          opacity={0.06}
+          opacity={0.12}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
           toneMapped={false}
@@ -420,19 +406,14 @@ function AccentLight({ accent }: { accent: MotionValue<string> }) {
 // --- Scene ---------------------------------------------------------------
 
 function Scene({
-  progress,
   active,
   accent,
   coarse,
 }: {
-  progress: MotionValue<number>
   active: MotionValue<number>
   accent: MotionValue<string>
   coarse: boolean
 }) {
-  const smooth = useSpring(progress, { stiffness: 68, damping: 26, mass: 0.4, restDelta: 0.0004 })
-  const focus = useTransform(smooth, (p) => THREE.MathUtils.clamp(p, 0, 1) * 3)
-
   // Aspect-fit scale for the whole constellation. Recomputed from the live
   // viewport width and applied to the root group each frame, so the outer ring
   // + every logo stay inside a narrow/portrait frame instead of clipping. The
@@ -465,10 +446,10 @@ function Scene({
       <group ref={root}>
         <Mind accent={accent} />
         {[0, 1, 2, 3].map((ring) => (
-          <RingGuide key={ring} ring={ring} focus={focus} />
+          <RingGuide key={ring} ring={ring} />
         ))}
         {TOOLKIT_TOOLS.map((_, index) => (
-          <Logo key={index} index={index} focus={focus} active={active} coarse={coarse} fit={fit} />
+          <Logo key={index} index={index} active={active} coarse={coarse} fit={fit} />
         ))}
       </group>
     </>
@@ -476,12 +457,10 @@ function Scene({
 }
 
 export default function ToolkitCortex({
-  progress,
   active,
   accent,
   coarse = false,
 }: {
-  progress: MotionValue<number>
   active: MotionValue<number>
   accent: MotionValue<string>
   coarse?: boolean
@@ -497,7 +476,7 @@ export default function ToolkitCortex({
         gl={{ antialias: true, powerPreference: 'high-performance' }}
       >
         <Suspense fallback={null}>
-          <Scene progress={progress} active={active} accent={accent} coarse={coarse} />
+          <Scene active={active} accent={accent} coarse={coarse} />
         </Suspense>
       </Canvas>
     </div>

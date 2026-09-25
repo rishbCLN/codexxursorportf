@@ -318,7 +318,7 @@ function Prism({
 
 // --- Scene ---------------------------------------------------------------
 
-function Scene({ focus, reduced }: { focus: MotionValue<number>; reduced: boolean }) {
+function Scene({ focus, reduced, compact }: { focus: MotionValue<number>; reduced: boolean; compact: boolean }) {
   const viewport = useThree((s) => s.viewport)
   // The canvas is intentionally larger than the visible stage (see the
   // .contact-canvas-layer inset) so a prism can swell / rise on hover without the
@@ -329,7 +329,12 @@ function Scene({ focus, reduced }: { focus: MotionValue<number>; reduced: boolea
   const OVERSCAN_X = 0.24
   const OVERSCAN_Y = 0.28
   const PREV_OVERSCAN_Y = 0.12 // the baseY 0.11 factor was tuned at the old -12% inset
-  const spread = viewport.width / (3 * (1 + 2 * OVERSCAN_X))
+  // On a phone the three cards stack vertically, so the prism row reads as
+  // ambient 3D behind them: pull the prisms closer together (a tighter cluster
+  // centred behind the stack) instead of spanning the full width. On tablet +
+  // desktop they keep the wide, one-third-of-stage spacing.
+  const spreadDivisor = compact ? 4.4 : 3
+  const spread = viewport.width / (spreadDivisor * (1 + 2 * OVERSCAN_X))
   // Seat the prisms a touch above the canvas centre — rescaled for the new inset.
   // Kept low enough that a focused prism's hover spring-up stays inside the top
   // of the fixed vertical frustum (~+2.58 world units) instead of clipping.
@@ -339,9 +344,11 @@ function Scene({ focus, reduced }: { focus: MotionValue<number>; reduced: boolea
   // the fixed-size prisms would grow oversized relative to their slot and clip
   // the section edges. Scale them down to fit; never above 1 so desktop is
   // unchanged. DESIGN_WIDTH ≈ the world width at the prism plane on desktop
-  // (fov 32, z 9, ~16:9), already accounting for the canvas overscan.
+  // (fov 32, z 9, ~16:9), already accounting for the canvas overscan. Phones get
+  // an extra step-down so the cluster stays a subtle backdrop to the cards.
   const DESIGN_WIDTH = 8.8
-  const fit = THREE.MathUtils.clamp(viewport.width / (DESIGN_WIDTH * (1 + 2 * OVERSCAN_X)), 0.5, 1)
+  const aspectFit = THREE.MathUtils.clamp(viewport.width / (DESIGN_WIDTH * (1 + 2 * OVERSCAN_X)), 0.5, 1)
+  const fit = compact ? aspectFit * 0.82 : aspectFit
 
   return (
     <>
@@ -375,9 +382,11 @@ function Scene({ focus, reduced }: { focus: MotionValue<number>; reduced: boolea
 export default function ContactConstellation({
   focus,
   reduced = false,
+  compact = false,
 }: {
   focus: MotionValue<number>
   reduced?: boolean
+  compact?: boolean
 }) {
   const { canvasKey, onCreated } = useWebGLResilience()
   return (
@@ -390,7 +399,7 @@ export default function ContactConstellation({
         gl={{ antialias: true, powerPreference: 'high-performance' }}
       >
         <Suspense fallback={null}>
-          <Scene focus={focus} reduced={reduced} />
+          <Scene focus={focus} reduced={reduced} compact={compact} />
         </Suspense>
       </Canvas>
     </div>

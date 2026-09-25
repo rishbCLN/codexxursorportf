@@ -404,7 +404,7 @@ header { position: absolute; z-index: 100; top: 0; left: 0; right: 0; height: 94
    The node hit-area keeps 22px purely as an invisible touch target.
    Amber (--acid) is spent only on intent: hover / focus / active / live signals;
    at rest everything is low-opacity paper so the prisms stay the brightest thing. */
-.contact { position: relative; min-height: 100svh; padding: clamp(90px, 12vh, 150px) 3vw 34px; overflow: hidden; background: radial-gradient(150% 105% at 50% 0%, #0c0a18 0%, #070510 38%, #070510 72%, #050309 100%); color: var(--paper); isolation: isolate; }
+.contact { position: relative; min-height: 100svh; padding: clamp(70px, 9vh, 120px) 3vw 34px; overflow: hidden; background: linear-gradient(180deg, #0a0810 0%, rgba(10,8,16,0) 20%), radial-gradient(150% 105% at 50% 30%, #0c0a18 0%, #070510 46%, #070510 74%, #050309 100%), #0a0810; color: var(--paper); isolation: isolate; }
 /* Atmosphere behind the prism stage: a warm bloom over the headline, a soft pool
    spilling up from the footer, and a faint steel counter-glow — all sitting BEHIND
    the opaque canvas, so the prisms stay the one bright thing on a lit dark stage. */
@@ -796,44 +796,33 @@ footer p { margin: 0; font: 500 9px/1.6 DM Mono; letter-spacing: .08em; }
 .principle-diagram i:nth-child(3) { inset: 45%; }
 .principle-diagram b { position: absolute; inset: 3%; border-top: 2px solid var(--card-color); border-radius: 50%; }
 
-/* 05 / TOOLKIT — "THE CORTEX": a scroll-pinned WebGL neural constellation with
-   crisp DOM text layered on top. Dark, full-bleed, glass-in-void. */
+/* 05 / TOOLKIT — "THE CORTEX": a single ambient WebGL constellation of tool
+   logos orbiting a glass "mind", with crisp DOM text layered on top. No scroll
+   phases — one continuous stage that flows straight into the contact section. */
 .technology-section { position: relative; padding: 0; overflow: clip; background: #0a0810; color: #efe9ff; isolation: isolate; }
 .technology-section .section-tag { color: #8a7fa0; }
 .technology-section .section-tag span { color: var(--lobe-accent, #e7b65c); }
 
-.toolkit-scroll { position: relative; height: 420svh; }
-.toolkit-marker { position: absolute; left: 0; width: 1px; height: 1px; pointer-events: none; }
-.toolkit-stage { position: sticky; top: 0; height: 100svh; overflow: hidden; isolation: isolate; }
+.toolkit-stage { position: relative; height: 100svh; overflow: hidden; isolation: isolate; }
 .toolkit-stage::before { content: ''; position: absolute; inset: 0; z-index: 2; opacity: .3; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.3'/%3E%3C/svg%3E"); mix-blend-mode: soft-light; pointer-events: none; }
 .toolkit-canvas { position: absolute; inset: 0; z-index: 1; }
 .toolkit-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
-
-/* Scroll progress hairline across the very top of the stage */
-.toolkit-meter { position: absolute; z-index: 4; left: 0; top: 0; width: 100%; height: 2px; background: rgba(183,160,255,.14); overflow: hidden; }
-.toolkit-meter i { display: block; width: 100%; height: 100%; transform-origin: 0 50%; background: var(--lobe-accent, #e7b65c); box-shadow: 0 0 12px currentColor; }
 
 /* Top-left title plate */
 .toolkit-head { position: absolute; z-index: 3; left: clamp(20px,3vw,60px); top: clamp(70px,11vh,120px); pointer-events: none; }
 .toolkit-head h2 { margin: 12px 0 0; font-size: clamp(30px,3.8vw,58px); line-height: .9; letter-spacing: -.05em; text-shadow: 0 12px 44px rgba(0,0,0,.6); }
 .toolkit-head h2 i { color: var(--acid); font-family: Instrument Serif,serif; font-weight: 400; letter-spacing: -.04em; }
 
-/* Bottom reader — active lobe label + hoverable tool chips. The only place the
-   active category is shown; kept minimal. */
+/* Bottom reader — the full, flat list of hoverable tool chips (no lobe phases). */
 .toolkit-reader { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; padding: clamp(20px,4vh,44px) clamp(20px,3vw,60px) clamp(22px,3.5vh,40px); background: linear-gradient(transparent,rgba(8,6,14,.55) 46%,rgba(8,6,14,.9)); }
-.toolkit-reader-inner { min-width: 0; }
-.toolkit-reader-meta { display: flex; align-items: baseline; gap: 14px; color: #9086a8; font: 500 8px DM Mono,monospace; letter-spacing: .18em; }
-.toolkit-reader-meta span:nth-child(2) { color: var(--lobe-accent); font-size: clamp(15px,1.5vw,22px); font-weight: 600; letter-spacing: .06em; }
-.toolkit-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: clamp(12px,1.6vw,18px) 0 0; }
+.toolkit-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .toolkit-chip { position: relative; display: inline-flex; align-items: center; gap: 9px; padding: 9px 15px; background: rgba(20,16,30,.5); border: 1px solid rgba(183,160,255,.22); border-radius: 30px; color: #cfc6e6; cursor: pointer; backdrop-filter: blur(8px); transition: background .3s,border-color .3s,color .3s,transform .3s cubic-bezier(.16,1,.3,1); }
 .toolkit-chip-name { font-size: clamp(11px,1vw,14px); font-weight: 600; letter-spacing: -.03em; }
 .toolkit-chip-dot { width: 5px; height: 5px; border-radius: 50%; background: #6f6689; transition: background .3s,box-shadow .3s; }
-.toolkit-chip:hover, .toolkit-chip.is-active { border-color: var(--lobe-accent); color: #fff; transform: translateY(-2px); }
-.toolkit-chip.is-active { background: var(--lobe-accent); color: #14100f; }
-.toolkit-chip:hover .toolkit-chip-dot, .toolkit-chip.is-active .toolkit-chip-dot { background: var(--lobe-accent); box-shadow: 0 0 8px var(--lobe-accent); }
+.toolkit-chip:hover, .toolkit-chip.is-active { border-color: var(--lobe-accent, #e7b65c); color: #fff; transform: translateY(-2px); }
+.toolkit-chip.is-active { background: var(--lobe-accent, #e7b65c); color: #14100f; }
+.toolkit-chip:hover .toolkit-chip-dot, .toolkit-chip.is-active .toolkit-chip-dot { background: var(--lobe-accent, #e7b65c); box-shadow: 0 0 8px var(--lobe-accent, #e7b65c); }
 .toolkit-chip.is-active .toolkit-chip-dot { background: #14100f; box-shadow: none; }
-
-.toolkit-scrollcue { position: absolute; z-index: 3; left: 50%; top: clamp(24px,4vh,40px); transform: translateX(-50%); color: #8a7fa0; font: 500 7px DM Mono,monospace; letter-spacing: .24em; opacity: .7; animation: cuepulse 3s ease-in-out infinite; }
 
 .recognition-section { padding: 150px 3vw; background: var(--acid); color: #000; display: grid; grid-template-columns: .7fr 1.3fr; gap: 6vw; }
 .recognition-title h2 { margin: 70px 0 0; font-size: clamp(55px, 8vw, 120px); line-height: .78; letter-spacing: -.08em; }
