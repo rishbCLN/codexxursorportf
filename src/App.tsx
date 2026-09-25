@@ -316,6 +316,7 @@ function HeroHandsScene({ progress }: { progress: MotionValue<number> }) {
 
   useEffect(() => {
     const move = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return
       px.set((event.clientX / window.innerWidth - 0.5) * 22)
       py.set((event.clientY / window.innerHeight - 0.5) * 16)
     }
@@ -722,6 +723,7 @@ function PointerGlow() {
 
   useEffect(() => {
     const move = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return
       x.set(event.clientX)
       y.set(event.clientY)
     }
@@ -2035,9 +2037,11 @@ function ContactSection() {
   // The glass/bloom stage is a desktop-pointer experience: on touch or narrow
   // screens (where the horizontal prism row can't track stacked cards, and
   // transmission is costly) we skip the canvas and show flat cards instead.
+  // 600px matches the CSS breakpoint where the card grid collapses to 1 column,
+  // so the flat-card trigger and the layout collapse stay in lockstep.
   useEffect(() => {
     const hoverMq = window.matchMedia('(hover: none), (pointer: coarse)')
-    const widthMq = window.matchMedia('(max-width: 760px)')
+    const widthMq = window.matchMedia('(max-width: 600px)')
     const sync = () => { setCoarse(hoverMq.matches); setCompact(widthMq.matches) }
     sync()
     hoverMq.addEventListener('change', sync)

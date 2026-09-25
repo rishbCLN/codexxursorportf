@@ -12,7 +12,7 @@ const RootFallback = (
   <div
     role="alert"
     style={{
-      minHeight: '100vh',
+      minHeight: '100svh',
       display: 'grid',
       placeItems: 'center',
       padding: '2rem',
