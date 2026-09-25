@@ -1,4 +1,4 @@
-import { motion, useAnimationControls, useMotionValueEvent, useReducedMotion, useScroll } from 'framer-motion'
+import { motion, useAnimationControls, useMotionValueEvent, useScroll } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 
 const APPLE_BODY = 'M60 39C50 29 34 31 27 43C17 59 24 84 40 94C48 99 53 93 60 93C67 93 72 99 80 94C96 84 103 59 93 43C86 31 70 29 60 39Z'
@@ -7,7 +7,8 @@ const BITE_SIZES = [12, 13, 14, 13, 14, 12]
 
 export default function ScrollApple() {
   const { scrollYProgress } = useScroll()
-  const reduceMotion = useReducedMotion()
+  // Creative showcase: the apple's bite wiggle plays for everyone.
+  const reduceMotion = false
   const controls = useAnimationControls()
   const previousStage = useRef(0)
   const [biteStage, setBiteStage] = useState(0)

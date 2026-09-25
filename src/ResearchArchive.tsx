@@ -1,4 +1,5 @@
 import { Canvas, useFrame } from '@react-three/fiber'
+import { useWebGLResilience } from './useWebGLResilience'
 import { Environment, Lightformer, MeshTransmissionMaterial, RoundedBox, Sparkles } from '@react-three/drei'
 import { Suspense, useEffect, useMemo, useRef } from 'react'
 import { useSpring, useTransform } from 'framer-motion'
@@ -559,9 +560,12 @@ export default function ResearchArchive({
     }
   }, [slides])
 
+  const { canvasKey, onCreated } = useWebGLResilience()
   return (
     <div className="archive-canvas" aria-hidden="true">
       <Canvas
+        key={canvasKey}
+        onCreated={onCreated}
         dpr={[1, 1.6]}
         camera={{ position: [0, 0.3, 9], fov: 30 }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}

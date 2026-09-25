@@ -1,4 +1,5 @@
 import { Canvas, useFrame } from '@react-three/fiber'
+import { useWebGLResilience } from './useWebGLResilience'
 import { Environment, Lightformer, MeshTransmissionMaterial } from '@react-three/drei'
 import { Suspense, useMemo, useRef } from 'react'
 import { useSpring, useTransform } from 'framer-motion'
@@ -439,9 +440,12 @@ export default function ToolkitCortex({
   active: MotionValue<number>
   accent: MotionValue<string>
 }) {
+  const { canvasKey, onCreated } = useWebGLResilience()
   return (
     <div className="toolkit-canvas" aria-hidden="true">
       <Canvas
+        key={canvasKey}
+        onCreated={onCreated}
         dpr={[1, 1.6]}
         camera={{ position: [0, 0.5, 8.4], fov: 34 }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}

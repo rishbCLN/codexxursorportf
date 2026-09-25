@@ -1,4 +1,5 @@
 import { Canvas, useFrame } from '@react-three/fiber'
+import { useWebGLResilience } from './useWebGLResilience'
 import { Environment, Lightformer, Preload } from '@react-three/drei'
 import { Suspense, useRef } from 'react'
 import { motion, useTransform, useMotionTemplate, cubicBezier } from 'framer-motion'
@@ -110,10 +111,13 @@ export default function SonicExitRing({ progress }: { progress: MotionValue<numb
   // twice as quick as it used to take). It then keeps rushing in already crisp.
   const blur = useTransform(progress, [EXIT_BORN, SHARP], [15, 0], { clamp: true })
   const filter = useMotionTemplate`blur(${blur}px)`
+  const { canvasKey, onCreated } = useWebGLResilience()
 
   return (
     <motion.div className="hero-exit-canvas" style={{ filter }} aria-hidden="true">
       <Canvas
+        key={canvasKey}
+        onCreated={onCreated}
         dpr={[1, 1.7]}
         camera={{ position: [0, 0, 6], fov: 30 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}

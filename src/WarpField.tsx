@@ -1,4 +1,5 @@
 import { Canvas, useFrame } from '@react-three/fiber'
+import { useWebGLResilience } from './useWebGLResilience'
 import { Environment, Lightformer, RoundedBox, Float, Preload } from '@react-three/drei'
 import { EffectComposer, Bloom, Vignette, N8AO } from '@react-three/postprocessing'
 import { Suspense, useMemo, useRef, useEffect } from 'react'
@@ -863,9 +864,13 @@ export default function WarpField({ progress }: { progress: MotionValue<number> 
     clamp: true,
   })
 
+  const { canvasKey, onCreated } = useWebGLResilience()
+
   return (
     <motion.div className="hero-warp-canvas" aria-hidden="true" style={{ opacity }}>
       <Canvas
+        key={canvasKey}
+        onCreated={onCreated}
         shadows
         dpr={[1, 1.7]}
         camera={{ position: [0, 0, CAM_Z], fov: WARP_FOV }}

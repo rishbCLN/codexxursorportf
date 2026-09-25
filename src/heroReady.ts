@@ -32,9 +32,20 @@ export function signalHeroReady() {
 }
 
 // Resolves once all hero canvases have warmed (or immediately if they already
-// have). The loader also carries its own MAX-time failsafe, so a canvas that
-// errors out can never trap the reveal.
+// have). The loader also carries its own failsafe, but adding a 2s safety
+// timer here guarantees a stalled canvas/GPU context never hangs the loader.
 export function whenHeroReady(): Promise<void> {
   if (resolved) return Promise.resolve()
-  return new Promise((resolve) => { waiters.push(resolve) })
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true
+        resolve()
+      }
+    }, 2000)
+    waiters.push(() => {
+      clearTimeout(timer)
+      resolve()
+    })
+  })
 }

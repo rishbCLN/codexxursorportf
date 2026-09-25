@@ -1,4 +1,5 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { useWebGLResilience } from './useWebGLResilience'
 import { Environment, Lightformer, Preload } from '@react-three/drei'
 import { Suspense, useMemo, useRef } from 'react'
 import type { Ref } from 'react'
@@ -272,9 +273,12 @@ function Warp({ progress }: { progress: MotionValue<number> }) {
 }
 
 export default function SonicRing({ progress }: { progress: MotionValue<number> }) {
+  const { canvasKey, onCreated } = useWebGLResilience()
   return (
     <div className="hero-ring-canvas" aria-hidden="true">
       <Canvas
+        key={canvasKey}
+        onCreated={onCreated}
         dpr={[1, 1.7]}
         camera={{ position: [0, 0, 6], fov: 30 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}

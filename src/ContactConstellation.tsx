@@ -1,4 +1,5 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { useWebGLResilience } from './useWebGLResilience'
 import { Environment, Lightformer, MeshTransmissionMaterial, Sparkles } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import { Suspense, useMemo, useRef } from 'react'
@@ -364,9 +365,12 @@ export default function ContactConstellation({
   focus: MotionValue<number>
   reduced?: boolean
 }) {
+  const { canvasKey, onCreated } = useWebGLResilience()
   return (
     <div className="contact-canvas" aria-hidden="true">
       <Canvas
+        key={canvasKey}
+        onCreated={onCreated}
         dpr={[1, reduced ? 1.3 : 1.8]}
         camera={{ position: [0, 0, CAMERA_Z], fov: 32 }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}

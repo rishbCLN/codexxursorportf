@@ -21,18 +21,41 @@
 
 * { box-sizing: border-box; }
 html { background: var(--ink); overflow-x: clip; }
-body { margin: 0; min-width: 320px; overflow-x: clip; cursor: none; }
+body { margin: 0; min-width: 320px; overflow-x: clip; }
 main { position: relative; }
 img, svg, canvas { max-width: 100%; }
 input, textarea, select { max-width: 100%; font: inherit; }
-a, button { color: inherit; cursor: none; }
+a, button { color: inherit; }
 a { text-decoration: none; }
 button { font: inherit; }
 ::selection { color: #050505; background: var(--acid); }
 :focus-visible { outline: 2px solid currentColor; outline-offset: 5px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
-.cursor { position: fixed; z-index: 9999; width: 12px; height: 12px; border-radius: 50%; background: var(--acid); box-shadow: 0 0 0 1.5px rgba(255,255,255,.35), 0 0 8px var(--acid); top: -6px; left: -6px; pointer-events: none; mix-blend-mode: difference; transition: width .3s, height .3s, margin .3s; }
+/* Custom cursor only suppresses native cursor when active & pointer is fine */
+html.has-custom-cursor,
+html.has-custom-cursor body,
+html.has-custom-cursor a,
+html.has-custom-cursor button {
+  cursor: none;
+}
+
+.cursor {
+  position: fixed;
+  z-index: 100001; /* Higher than .loader (10000) so cursor is always visible */
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--acid);
+  box-shadow: 0 0 0 1.5px rgba(255,255,255,.35), 0 0 8px var(--acid);
+  top: -6px;
+  left: -6px;
+  pointer-events: none;
+  mix-blend-mode: difference;
+  opacity: 0;
+  transition: width .3s, height .3s, margin .3s, opacity .2s;
+  will-change: transform, opacity;
+}
 .cursor[data-active="true"] { width: 48px; height: 48px; margin: -18px; }
 .progress { position: fixed; z-index: 1000; left: 0; top: 0; right: 0; height: 2px; background: var(--acid); transform-origin: 0 50%; }
 .scroll-apple { position: fixed; z-index: 7; inset: 0; pointer-events: none; }
@@ -396,6 +419,14 @@ header { position: absolute; z-index: 100; top: 0; left: 0; right: 0; height: 94
 .contact-canvas-layer { position: absolute; inset: -28% -24%; z-index: 0; pointer-events: none; }
 .contact-canvas { position: absolute; inset: 0; }
 .contact-canvas canvas { display: block; }
+
+/* Static poster shown when a 3D scene's WebGL context is lost and cannot be
+   recovered after retries — a subtle ambient wash in each section's palette so
+   the area degrades gracefully instead of collapsing to nothing. Decorative. */
+.scene-poster { pointer-events: none; }
+.scene-poster--research { background: radial-gradient(60% 55% at 50% 42%, rgba(199,163,103,.20), transparent 70%), radial-gradient(92% 92% at 50% 60%, rgba(20,15,9,.92), rgba(5,5,5,0) 76%); }
+.scene-poster--toolkit { background: radial-gradient(58% 55% at 50% 45%, rgba(183,160,255,.20), transparent 70%), radial-gradient(92% 92% at 50% 60%, rgba(18,16,30,.92), rgba(5,5,5,0) 76%); }
+.scene-poster--contact { background: radial-gradient(55% 50% at 50% 48%, rgba(150,190,255,.16), transparent 72%), radial-gradient(92% 92% at 50% 55%, rgba(10,14,26,.88), rgba(5,5,5,0) 78%); }
 
 .contact-inner { position: relative; z-index: 2; max-width: 1400px; margin: 0 auto; text-align: center; pointer-events: none; }
 .contact-inner .section-tag { justify-content: center; color: rgba(242,241,235,.55); pointer-events: auto; }
@@ -1054,17 +1085,20 @@ footer p { margin: 0; font: 500 9px/1.6 DM Mono; letter-spacing: .08em; }
 
 @media (hover: none), (pointer: coarse) {
   body, a, button { cursor: auto; }
-  .cursor, .pointer-glow { display: none; }
+  /* Keep the custom cursor on desktop even when the OS reports a dual/touch
+     pointer; only the ambient glow is dropped. Touch moves are filtered in JS. */
+  .pointer-glow { display: none; }
   .menu a:hover { padding-left: 0; }
   .image-backed-screen img { transform: none !important; }
   .toolkit-chip:hover { transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* Creative showcase: we intentionally keep the full animated experience for
+     everyone. Only NATIVE scrolling is left un-smoothed (Lenis is gated in JS),
+     and the process/brain dissection stays static because its transforms are
+     JS-driven and paired with these layout rules. */
   html { scroll-behavior: auto; }
-  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
-  .cursor { display: none; }
-  .silver-apple { animation: none !important; }
   .process-section { height: 100svh; }
   .process-stage { position: relative; }
   .brain-layers { transform: none !important; }

@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, useAnimationFrame, useInView, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform, useVelocity } from 'framer-motion'
+import { AnimatePresence, motion, useAnimationFrame, useInView, useMotionValue, useMotionValueEvent, useScroll, useSpring, useTransform, useVelocity } from 'framer-motion'
 import type { MotionValue, Variants } from 'framer-motion'
 import gsap from 'gsap'
 import {
@@ -35,6 +35,7 @@ import Lenis from 'lenis'
 import ScrollApple from './ScrollApple'
 import { whenHeroReady } from './heroReady'
 import { triggerReveal, useRevealed } from './reveal'
+import { useNearViewport } from './useNearViewport'
 import heroHandLeftUrl from './assets/hero-hand-left.png'
 import heroHandRightUrl from './assets/hero-hand-right.png'
 import cloudsUrl from './assets/clouds.png'
@@ -364,19 +365,59 @@ function Cursor() {
   const smoothX = useSpring(x, { stiffness: 650, damping: 42, mass: 0.18 })
   const smoothY = useSpring(y, { stiffness: 650, damping: 42, mass: 0.18 })
   const [active, setActive] = useState(false)
+  const [visible, setVisible] = useState(false)
+
+  // Refs mirror the latest visible/active flags so the pointer handlers can
+  // dedupe their updates WITHOUT `visible` sitting in the effect's dependency
+  // array. Previously the first pointer move flipped `visible` true, which
+  // re-ran this effect and tore down + re-bound every listener — a visible
+  // rebind loop that also fired setActive() on every single mousemove. With a
+  // ref-based lifecycle the effect mounts its listeners exactly once and only
+  // calls setState when a value genuinely changes.
+  const visibleRef = useRef(false)
+  const activeRef = useRef(false)
 
   useEffect(() => {
-    const move = (event: PointerEvent | MouseEvent) => {
+    // Engage the custom cursor on any desktop pointer. We deliberately do NOT
+    // gate on `(pointer: fine)`: some desktop browsers report coarse/dual
+    // pointers (touchscreen laptops, pen digitisers) yet are driven by a mouse.
+    // Genuine touch input is filtered per-event below, so this stays correct.
+    const setVisibility = (next: boolean) => {
+      if (visibleRef.current === next) return
+      visibleRef.current = next
+      setVisible(next)
+      document.documentElement.classList.toggle('has-custom-cursor', next)
+    }
+
+    const onMove = (event: PointerEvent | MouseEvent) => {
+      if ('pointerType' in event && event.pointerType === 'touch') return
       x.set(event.clientX)
       y.set(event.clientY)
+      setVisibility(true)
       const target = event.target instanceof Element ? event.target : null
-      setActive(Boolean(target?.closest('a, button, .project-visual, [role="button"]')))
+      const nextActive = Boolean(target?.closest('a, button, .project-visual, .archive-upload-btn, .toolkit-chip, [role="button"]'))
+      if (activeRef.current !== nextActive) {
+        activeRef.current = nextActive
+        setActive(nextActive)
+      }
     }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('mousemove', move)
+
+    const onLeave = () => setVisibility(false)
+    const onEnter = () => setVisibility(true)
+
+    window.addEventListener('pointermove', onMove, { passive: true })
+    window.addEventListener('mousemove', onMove, { passive: true })
+    document.documentElement.addEventListener('mouseleave', onLeave)
+    document.documentElement.addEventListener('mouseenter', onEnter)
+    window.addEventListener('blur', onLeave)
+
     return () => {
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('mousemove', move)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('mousemove', onMove)
+      document.documentElement.removeEventListener('mouseleave', onLeave)
+      document.documentElement.removeEventListener('mouseenter', onEnter)
+      window.removeEventListener('blur', onLeave)
+      document.documentElement.classList.remove('has-custom-cursor')
     }
   }, [x, y])
 
@@ -384,18 +425,28 @@ function Cursor() {
     <motion.div
       className="cursor"
       data-active={active}
-      style={{ x: smoothX, y: smoothY }}
+      style={{
+        x: smoothX,
+        y: smoothY,
+        opacity: visible ? 1 : 0,
+        pointerEvents: 'none',
+      }}
+      aria-hidden="true"
     />
   )
 }
 
 // Decode an image off-thread; resolves once the bitmap is actually ready to
-// paint (not merely fetched), so the reveal can't hand off to a blank hero.
+// paint (not merely fetched), with a 1.2s timeout so an external asset never blocks the loader.
 function decodeImage(src: string): Promise<void> {
   return new Promise((resolve) => {
+    const timer = setTimeout(resolve, 1200)
+    const done = () => {
+      clearTimeout(timer)
+      resolve()
+    }
     const img = new Image()
     img.src = src
-    const done = () => resolve()
     if (img.decode) img.decode().then(done, done)
     else if (img.complete) done()
     else {
@@ -442,39 +493,26 @@ function Loader() {
   const slatRefs = useRef<Array<HTMLDivElement | null>>([])
 
   useEffect(() => {
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
     // Handwritten quote entrance: the block rises in and the text "writes" itself
     // on left-to-right, the attribution signing off a beat later — so the wait
-    // opens like a hand-penned note. Under reduced-motion it's simply present.
-    if (!reduced) {
-      gsap.from('.loader-quote-inner', { opacity: 0, y: 26, duration: 1.0, ease: 'power3.out', delay: 0.3 })
-      gsap.fromTo('.loader-quote-text', { clipPath: 'inset(0 100% -18% 0)' }, { clipPath: 'inset(0 0% -18% 0)', duration: 1.6, ease: 'power2.inOut', delay: 0.45 })
-      gsap.from('.loader-quote-author', { opacity: 0, y: 12, duration: 0.7, ease: 'power2.out', delay: 1.3 })
-    }
+    // opens like a hand-penned note. This is a creative showcase, so it plays for
+    // everyone regardless of the OS reduced-motion setting.
+    gsap.from('.loader-quote-inner', { opacity: 0, y: 26, duration: 1.0, ease: 'power3.out', delay: 0.3 })
+    gsap.fromTo('.loader-quote-text', { clipPath: 'inset(0 100% -18% 0)' }, { clipPath: 'inset(0 0% -18% 0)', duration: 1.6, ease: 'power2.inOut', delay: 0.45 })
+    gsap.from('.loader-quote-author', { opacity: 0, y: 12, duration: 0.7, ease: 'power2.out', delay: 1.3 })
 
-    // Deliberate, cinematic hold, extended so far more of the site streams into
-    // cache behind the loader. MIN is the floor the loader stays up even on a
-    // fully-warm cache; PACE_DUR is the envelope the 00->100 count climbs across
-    // so a repeat visit still reads as a real count-up instead of snapping to
-    // 100. MAX is the hard failsafe so a stall can never trap the user.
-    const MIN = 6000
-    const PACE_DUR = 5400
-    const MAX = 33000
+    // Snappy, reliable pacing: MIN ensures the quote and counter entrance read
+    // with deliberate luxury (~1.4s), but never strands the user.
+    // MAX is a strict failsafe (3.5s) so no network hang or background tab delay can trap the site.
+    const MIN = 1400
+    const PACE_DUR = 1200
+    const MAX = 3500
     const start = performance.now()
     let cancelled = false
     let raf = 0
 
-    // Hold the loader until ~90% of the WHOLE site is cached — not just the
-    // hero. We kick off every meaningful asset up front (the 3D warp chunks, the
-    // below-the-fold route chunks, every image, fonts) plus a GPU warm-up
-    // (whenHeroReady) that resolves once all three hero canvases have mounted +
-    // compiled + rendered a few frames behind the loader. Progress is weighted
-    // by rough payload size so the counter is honest, and the reveal waits for
-    // SITE_TARGET of that weight. The remaining ~10% (deepest tail, e.g. the PDF
-    // engine) keeps downloading in the background after the hero appears.
-    // import() specifiers match the React.lazy ones, so the bundler dedupes.
-    const SITE_TARGET = 0.9
+    // Hold the loader until primary hero assets are cached
+    const SITE_TARGET = 0.85
     const projectImages = projects.map((p) => p.image).filter(Boolean) as string[]
     type LoadTask = { p: Promise<unknown>; w: number; hero: boolean }
     const tasks: LoadTask[] = [
@@ -486,7 +524,7 @@ function Loader() {
       { p: decodeImage(cloudsUrl), w: 1400, hero: true },
       { p: decodeImage(heroHandLeftUrl), w: 795, hero: true },
       { p: decodeImage(heroHandRightUrl), w: 640, hero: true },
-      { p: document.fonts ? document.fonts.ready : Promise.resolve(), w: 120, hero: true },
+      { p: document.fonts ? Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1200))]) : Promise.resolve(), w: 120, hero: true },
       { p: whenHeroReady(), w: 200, hero: true },
       { p: import('./ResearchArchive'), w: 12, hero: false },
       { p: import('./ToolkitCortex'), w: 70, hero: false },
@@ -505,15 +543,6 @@ function Loader() {
       if (cancelled) return
       const finish = () => { if (!cancelled) setVisible(false) }
       const slats = slatRefs.current.filter(Boolean) as HTMLDivElement[]
-
-      // Reduced-motion: no curtain choreography. Flip the hero on immediately and
-      // cross-fade the shell out.
-      if (reduced) {
-        if (statusRef.current) statusRef.current.textContent = 'READY'
-        triggerReveal()
-        gsap.to(rootRef.current, { autoAlpha: 0, duration: 0.5, ease: 'power2.out', onComplete: finish })
-        return
-      }
 
       // Four-phase master timeline. Everything is placed on labels so the phases
       // read top-to-bottom and stay easy to retune.
@@ -579,25 +608,17 @@ function Loader() {
     const tick = (now: number) => {
       if (cancelled) return
       const elapsed = now - start
-      const siteProgress = doneW / totalW
-      // Rescale so the counter reads 100% exactly when SITE_TARGET of the site
-      // is cached (we don't make the user wait on the final ~10% tail).
+      const siteProgress = totalW > 0 ? doneW / totalW : 1
+      // Rescale so the counter reads 100% once SITE_TARGET is reached
       const dataTarget = Math.min(1, siteProgress / SITE_TARGET)
-      // Time envelope: the count can't climb faster than PACE_DUR allows, so even
-      // an instant warm-cache load still shows a deliberate ~4s count-up rather
-      // than snapping to 100.
       const paceCeil = Math.min(1, elapsed / PACE_DUR)
       const target = Math.min(dataTarget, paceCeil)
-      shown += (target - shown) * 0.05
-      // Reveal only once the hero is fully loaded + warm AND the site hit its
-      // target AND we've held for MIN — or the failsafe fires. Hero-critical
-      // dominates the weight, so it's effectively always in before SITE_TARGET,
-      // but we also require the warm-up explicitly so the first scroll never
-      // compiles shaders on screen.
-      const ready = (heroPending <= 0 && siteProgress >= SITE_TARGET && elapsed >= MIN) || elapsed >= MAX
-      if (ready) shown += (1 - shown) * 0.12 // ease the last stretch to 100
-      else shown = Math.min(shown, 0.99) // hold below 100 until truly ready
-      if (shown > 0.999) shown = 1
+      shown += (target - shown) * 0.1
+      // Ready once hero has settled and MIN elapsed, or at 2.4s, or strict failsafe MAX
+      const ready = (heroPending <= 0 && siteProgress >= SITE_TARGET && elapsed >= MIN) || elapsed >= 2400 || elapsed >= MAX
+      if (ready) shown += (1 - shown) * 0.22 // smoothly complete to 100%
+      else shown = Math.min(shown, 0.99)
+      if (shown > 0.99) shown = 1
       const pct = Math.round(shown * 100)
       if (numRef.current) numRef.current.textContent = String(pct).padStart(2, '0')
       if (lineRef.current) lineRef.current.style.transform = `scaleX(${shown})`
@@ -1049,8 +1070,17 @@ function ArchiveResearch() {
     isPdf ? ARCHIVE_ACCENTS[index % ARCHIVE_ACCENTS.length] : researchPapers[index].accent
 
   const { scrollYProgress } = useScroll({ target: scrollRef, offset: ['start start', 'end end'] })
-  const prefersReduced = useReducedMotion()
+  // Creative showcase: the reading-room stage scale / blur / plunge play for
+  // everyone regardless of the OS reduced-motion setting.
+  const prefersReduced = false
   const accent = useMotionValue(researchPapers[0].accent)
+
+  // Viewport gate: only hold a WebGL context for the glass reading room while the
+  // section is near the viewport. We observe the STABLE OUTER section (not the
+  // pinned `.archive-scroll` track, which failed to flip `useInView` reliably and
+  // left the room an empty void) via a native IntersectionObserver with a wide
+  // margin, so the scene mounts a touch early and releases once well past.
+  const [sceneRef, sceneInView] = useNearViewport<HTMLElement>()
 
   // The pinned track runs in two phases:
   // Phase 1 (0.00 -> 0.72): Reading room exploration. Focus advances across the glass monoliths.
@@ -1116,7 +1146,7 @@ function ArchiveResearch() {
   }
 
   return (
-    <section className="playground" id="research">
+    <section className="playground" id="research" ref={sceneRef}>
       {/* Tall scroll track; the stage inside pins while papers turn in the light */}
       <div className="archive-scroll" ref={scrollRef}>
         {Array.from({ length: slideCount }).map((_, index) => (
@@ -1142,11 +1172,16 @@ function ArchiveResearch() {
               <motion.span className="research-lamp" style={{ backgroundColor: accent }} />
             </div>
 
-            <SceneBoundary label="ResearchArchive">
-              <Suspense fallback={null}>
-                <ResearchArchive progress={reading} exit={exit} papers={researchPapers} accent={accent} pdf={pdf} />
-              </Suspense>
-            </SceneBoundary>
+            {sceneInView && (
+              <SceneBoundary
+                label="ResearchArchive"
+                fallback={<div className="archive-canvas scene-poster scene-poster--research" aria-hidden="true" />}
+              >
+                <Suspense fallback={null}>
+                  <ResearchArchive progress={reading} exit={exit} papers={researchPapers} accent={accent} pdf={pdf} />
+                </Suspense>
+              </SceneBoundary>
+            )}
 
             <motion.div
               className="archive-head"
@@ -1335,6 +1370,12 @@ function TechnologySection() {
   const { scrollYProgress } = useScroll({ target: scrollRef, offset: ['start start', 'end end'] })
   const meterScale = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.35 })
 
+  // Viewport gate: the orbiting-logos cortex only holds its WebGL context while
+  // the section is near the viewport, then unmounts and releases it. Observed on
+  // the STABLE OUTER section (not the pinned `.toolkit-scroll` track) so the gate
+  // flips reliably instead of leaving the stage blank.
+  const [sceneRef, sceneInView] = useNearViewport<HTMLElement>()
+
   useMotionValueEvent(scrollYProgress, 'change', (value) => {
     const next = Math.round(clamp01(value) * last)
     if (next !== clusterRef.current) {
@@ -1355,7 +1396,7 @@ function TechnologySection() {
   const cluster = TOOLKIT_CLUSTERS[activeCluster]
 
   return (
-    <section className="technology-section" id="toolkit">
+    <section className="technology-section" id="toolkit" ref={sceneRef}>
       <div className="toolkit-scroll" ref={scrollRef}>
         {TOOLKIT_CLUSTERS.map((_, index) => (
           <span
@@ -1368,11 +1409,16 @@ function TechnologySection() {
         ))}
 
         <div className="toolkit-stage">
-          <SceneBoundary label="ToolkitCortex">
-            <Suspense fallback={null}>
-              <ToolkitCortex progress={scrollYProgress} active={activeNode} accent={accent} />
-            </Suspense>
-          </SceneBoundary>
+          {sceneInView && (
+            <SceneBoundary
+              label="ToolkitCortex"
+              fallback={<div className="toolkit-canvas scene-poster scene-poster--toolkit" aria-hidden="true" />}
+            >
+              <Suspense fallback={null}>
+                <ToolkitCortex progress={scrollYProgress} active={activeNode} accent={accent} />
+              </Suspense>
+            </SceneBoundary>
+          )}
 
           <div className="toolkit-meter" aria-hidden="true"><motion.i style={{ scaleX: meterScale }} /></div>
 
@@ -1961,9 +2007,16 @@ function ContactNode({
 function ContactSection() {
   const ref = useRef<HTMLElement>(null)
   const inView = useInView(ref, { once: true, margin: '200px 0px' })
+  // Separate, LIVE (non-once) gate for the WebGL prisms so the context is
+  // released when the section scrolls out of view — unlike `inView` above, which
+  // is `once: true` because the text entrance should play only a single time.
+  const canvasInView = useInView(ref, { margin: '200px 0px 200px 0px' })
   const footRef = useRef<HTMLDivElement>(null)
   const footInView = useInView(footRef, { once: true, margin: '-12%' })
-  const reduced = !!useReducedMotion()
+  // Creative showcase: the contact prisms spin, sparkle and the text masks play
+  // for everyone. We intentionally ignore the OS reduced-motion preference here
+  // (native scrolling is still respected via Lenis being gated separately).
+  const reduced = false
   const [active, setActive] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
   const [coarse, setCoarse] = useState(false)
@@ -1992,7 +2045,10 @@ function ContactSection() {
     }
   }, [])
   const flat = coarse || compact
-  const showCanvas = inView && !flat
+  // Creative showcase: the 3D stage runs on every desktop, even when the OS
+  // reports a coarse/dual pointer. `flat` still drives the fallback layout
+  // classes, but no longer suppresses the canvas itself.
+  const showCanvas = canvasInView
 
   const enter = (i: number) => { setActive(i); focus.set(i) }
   const leave = () => { setActive(null); focus.set(-1) }
@@ -2044,7 +2100,10 @@ function ContactSection() {
             transition={reduced ? { duration: 0.001 } : { duration: 1.25, ease: [0.16, 1, 0.3, 1] }}
           >
             {showCanvas && (
-              <SceneBoundary label="ContactConstellation">
+              <SceneBoundary
+                label="ContactConstellation"
+                fallback={<div className="contact-canvas scene-poster scene-poster--contact" aria-hidden="true" />}
+              >
                 <Suspense fallback={null}>
                   <ContactConstellation focus={focus} reduced={reduced} />
                 </Suspense>
@@ -2135,9 +2194,32 @@ function App() {
   // Monotonic smoothing (NOT a spring) so the sequence never springs past a
   // scroll-stop and corrects backward. Lenis already adds inertia on top.
   const heroProgress = useSmoothed(heroMapped, 80)
+
+  // Viewport gate for the three hero WebGL canvases (SonicRing / WarpField /
+  // SonicExitRing). They mount while any part of the tall pinned hero is near
+  // the viewport and unmount — releasing their WebGL contexts — once it's
+  // scrolled well past. The generous margin keeps them warm through the entire
+  // hero scroll journey and guarantees they're mounted at load (hero is at the
+  // top), so the loader's warm-up probes still fire.
+  const heroInView = useInView(heroRef, { margin: '200px 0px 200px 0px' })
+
   // Latches true the instant the loader curtain starts parting; drives the hero
   // text entrance so it choreographs with the hand-off.
   const revealed = useRevealed()
+  // Decouple the hero typography from the loader's GSAP timeline. `revealed` is
+  // flipped by triggerReveal() inside that timeline, which is driven by
+  // requestAnimationFrame — and rAF is paused/throttled in background tabs, so a
+  // stalled loader could otherwise strand the headline + CTAs invisible forever.
+  // This independent wall-clock timer (setTimeout, NOT rAF) guarantees the hero
+  // text reveals on its own even if the timeline never fires. In the normal fast
+  // path `revealed` still wins first, so the curtain-synced choreography is
+  // preserved; this only takes over when the timeline is throttled or stalled.
+  const [heroFailsafe, setHeroFailsafe] = useState(false)
+  useEffect(() => {
+    const timer = window.setTimeout(() => setHeroFailsafe(true), 3200)
+    return () => window.clearTimeout(timer)
+  }, [])
+  const heroShown = revealed || heroFailsafe
   // Ring stops ~0.60, we dive into the hole 0.60->0.80, then warp. The panel
   // (hero text + hands) scales up into the dive and fades out before the warp
   // so only the ring/stars remain for the journey.
@@ -2188,6 +2270,14 @@ function App() {
     }
   }, [])
 
+  // Failsafe to guarantee all hero and website features reveal even if loader is interrupted
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      triggerReveal()
+    }, 3800)
+    return () => clearTimeout(timer)
+  }, [])
+
   return (
     <>
       <Loader />
@@ -2209,7 +2299,7 @@ function App() {
                   variants={heroFade}
                   custom={0}
                   initial="hidden"
-                  animate={revealed ? 'show' : 'hidden'}
+                  animate={heroShown ? 'show' : 'hidden'}
                 >
                   Independent creative developer in New York, designing and
                   engineering expressive, high-performance work for the web.
@@ -2220,7 +2310,7 @@ function App() {
                   variants={heroFade}
                   custom={1}
                   initial="hidden"
-                  animate={revealed ? 'show' : 'hidden'}
+                  animate={heroShown ? 'show' : 'hidden'}
                 >
                   <span>40.7128° N</span>
                   <span>74.0060° W</span>
@@ -2230,13 +2320,13 @@ function App() {
 
               <h1 className="hero-title">
                 <span className="hero-line">
-                  <motion.span variants={heroMask} custom={0} initial="hidden" animate={revealed ? 'show' : 'hidden'}>Building digital</motion.span>
+                  <motion.span variants={heroMask} custom={0} initial="hidden" animate={heroShown ? 'show' : 'hidden'}>Building digital</motion.span>
                 </span>
                 <span className="hero-line">
-                  <motion.span variants={heroMask} custom={1} initial="hidden" animate={revealed ? 'show' : 'hidden'}>systems</motion.span>
+                  <motion.span variants={heroMask} custom={1} initial="hidden" animate={heroShown ? 'show' : 'hidden'}>systems</motion.span>
                 </span>
                 <span className="hero-line hero-line-serif">
-                  <motion.span variants={heroMaskGlow} custom={2} initial="hidden" animate={revealed ? 'show' : 'hidden'}>for the unreal.</motion.span>
+                  <motion.span variants={heroMaskGlow} custom={2} initial="hidden" animate={heroShown ? 'show' : 'hidden'}>for the unreal.</motion.span>
                 </span>
               </h1>
 
@@ -2245,7 +2335,7 @@ function App() {
                 variants={heroFade}
                 custom={3}
                 initial="hidden"
-                animate={revealed ? 'show' : 'hidden'}
+                animate={heroShown ? 'show' : 'hidden'}
               >
                 <div className="hero-actions">
                   <MagneticLink href="#work" className="hero-cta">
@@ -2261,23 +2351,27 @@ function App() {
               </motion.div>
             </motion.div>
 
-            <SceneBoundary label="SonicRing">
-              <Suspense fallback={null}>
-                <SonicRing progress={heroProgress} />
-              </Suspense>
-            </SceneBoundary>
+            {heroInView && (
+              <>
+                <SceneBoundary label="SonicRing">
+                  <Suspense fallback={null}>
+                    <SonicRing progress={heroProgress} />
+                  </Suspense>
+                </SceneBoundary>
 
-            <SceneBoundary label="WarpField">
-              <Suspense fallback={null}>
-                <WarpField progress={heroProgress} />
-              </Suspense>
-            </SceneBoundary>
+                <SceneBoundary label="WarpField">
+                  <Suspense fallback={null}>
+                    <WarpField progress={heroProgress} />
+                  </Suspense>
+                </SceneBoundary>
 
-            <SceneBoundary label="SonicExitRing">
-              <Suspense fallback={null}>
-                <SonicExitRing progress={heroProgress} />
-              </Suspense>
-            </SceneBoundary>
+                <SceneBoundary label="SonicExitRing">
+                  <Suspense fallback={null}>
+                    <SonicExitRing progress={heroProgress} />
+                  </Suspense>
+                </SceneBoundary>
+              </>
+            )}
 
             <motion.div
               className="hero-emerge"
