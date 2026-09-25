@@ -197,12 +197,10 @@ function displayColor(hex: string): THREE.Color {
 
 function Logo({
   index,
-  active,
   coarse,
   fit,
 }: {
   index: number
-  active: MotionValue<number>
   coarse: boolean
   fit: MutableRefObject<number>
 }) {
@@ -227,9 +225,6 @@ function Logo({
     if (!g) return
     const dt = Math.min(delta, 0.05) // clamp so a tab-switch stutter can't fling logos
     const t = state.clock.elapsedTime
-    // Only per-tool hover focus survives (the 4-phase lobe cycling is gone): every
-    // logo orbits at one uniform scale, and just the hovered one leans forward.
-    const isHot = Math.round(active.get()) === index
     const k = Math.min(1, dt * 6)
 
     // Orbit position: a point on the ring's tilted circle around the mind.
@@ -238,11 +233,8 @@ function Logo({
     const r = RING_RADIUS[ring]
     _pos.set(Math.cos(angle) * r, 0, Math.sin(angle) * r).applyMatrix4(RING_MATRIX[ring])
 
-    // Face the camera so the logo stays readable; the hovered logo leans a touch
-    // further toward the viewer.
+    // Face the camera so the logo stays readable.
     _dir.copy(CAM).sub(_pos).normalize()
-    const pull = isHot ? 0.95 : 0
-    _pos.addScaledVector(_dir, pull)
 
     // --- Cursor push: if the pointer sweeps near this logo on screen, shove it
     // away in the camera plane; a spring pulls it back to its orbit slot. On
@@ -287,8 +279,8 @@ function Logo({
     // gentle idle sway so bevels catch the light
     g.rotateZ(Math.sin(t * 0.6 + seed) * 0.08)
 
-    const targetScale = isHot ? 1.5 : 1.0
-    const targetEmissive = isHot ? 1.15 : 0.3
+    const targetScale = 1.0
+    const targetEmissive = 0.3
     scaleAmt.current = THREE.MathUtils.lerp(scaleAmt.current, targetScale, k)
     emissiveAmt.current = THREE.MathUtils.lerp(emissiveAmt.current, targetEmissive, k)
     g.scale.setScalar(scaleAmt.current)
@@ -406,11 +398,9 @@ function AccentLight({ accent }: { accent: MotionValue<string> }) {
 // --- Scene ---------------------------------------------------------------
 
 function Scene({
-  active,
   accent,
   coarse,
 }: {
-  active: MotionValue<number>
   accent: MotionValue<string>
   coarse: boolean
 }) {
@@ -449,7 +439,7 @@ function Scene({
           <RingGuide key={ring} ring={ring} />
         ))}
         {TOOLKIT_TOOLS.map((_, index) => (
-          <Logo key={index} index={index} active={active} coarse={coarse} fit={fit} />
+          <Logo key={index} index={index} coarse={coarse} fit={fit} />
         ))}
       </group>
     </>
@@ -457,11 +447,9 @@ function Scene({
 }
 
 export default function ToolkitCortex({
-  active,
   accent,
   coarse = false,
 }: {
-  active: MotionValue<number>
   accent: MotionValue<string>
   coarse?: boolean
 }) {
@@ -476,7 +464,7 @@ export default function ToolkitCortex({
         gl={{ antialias: true, powerPreference: 'high-performance' }}
       >
         <Suspense fallback={null}>
-          <Scene active={active} accent={accent} coarse={coarse} />
+          <Scene accent={accent} coarse={coarse} />
         </Suspense>
       </Canvas>
     </div>

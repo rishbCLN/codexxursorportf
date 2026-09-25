@@ -145,7 +145,9 @@ function Prism({
   node,
   focus,
   reduced,
-  spread,
+  offsetX,
+  offsetY,
+  yaw,
   baseY,
   fit,
 }: {
@@ -153,7 +155,9 @@ function Prism({
   node: { key: string; icon: Brand; tint: string }
   focus: MotionValue<number>
   reduced: boolean
-  spread: number
+  offsetX: number
+  offsetY: number
+  yaw: number
   baseY: number
   fit: number
 }) {
@@ -235,9 +239,11 @@ function Prism({
     // Each prism is yawed so its forward axis points at the camera; the mark that
     // floats OUTSIDE the glass (see the logo group below) then sits exactly on the
     // camera→prism sight line — centred over its gem with no side-prism parallax.
+    // On a phone the prisms stack VERTICALLY (offsetY) instead of in a side-by-side
+    // row (offsetX), so they read as a column behind the stacked contact cards.
     <group
-      position={[spread * (index - 1), 0, 0]}
-      rotation={[0, Math.atan2(-(spread * (index - 1)), CAMERA_Z), 0]}
+      position={[offsetX, offsetY, 0]}
+      rotation={[0, yaw, 0]}
     >
       {/* bobbing / springing assembly */}
       <group ref={inner} position={[0, baseY, 0]}>
@@ -337,15 +343,19 @@ function Scene({ focus, reduced, compact }: { focus: MotionValue<number>; reduce
   const spread = viewport.width / (spreadDivisor * (1 + 2 * OVERSCAN_X))
   // Seat the prisms a touch above the canvas centre — rescaled for the new inset.
   // Kept low enough that a focused prism's hover spring-up stays inside the top
-  // of the fixed vertical frustum (~+2.58 world units) instead of clipping.
-  const baseY = viewport.height * 0.11 * ((1 + 2 * PREV_OVERSCAN_Y) / (1 + 2 * OVERSCAN_Y))
+  // of the fixed vertical frustum (~+2.58 world units) instead of clipping. On a
+  // phone the prisms stack vertically and are centred, so the lift is neutral.
+  const baseY = compact ? 0 : viewport.height * 0.11 * ((1 + 2 * PREV_OVERSCAN_Y) / (1 + 2 * OVERSCAN_Y))
+  // Vertical spacing between stacked prisms on a phone. Sized so three fit inside
+  // the frustum height with a comfortable gap once the fit-scale is applied.
+  const vSpread = 1.55
 
   // Aspect-fit: on a narrow/portrait frame the visible world width shrinks, so
   // the fixed-size prisms would grow oversized relative to their slot and clip
   // the section edges. Scale them down to fit; never above 1 so desktop is
   // unchanged. DESIGN_WIDTH ≈ the world width at the prism plane on desktop
   // (fov 32, z 9, ~16:9), already accounting for the canvas overscan. Phones get
-  // an extra step-down so the cluster stays a subtle backdrop to the cards.
+  // an extra step-down so the stacked column stays a subtle backdrop to the cards.
   const DESIGN_WIDTH = 8.8
   const aspectFit = THREE.MathUtils.clamp(viewport.width / (DESIGN_WIDTH * (1 + 2 * OVERSCAN_X)), 0.5, 1)
   const fit = compact ? aspectFit * 0.82 : aspectFit
@@ -366,9 +376,27 @@ function Scene({ focus, reduced, compact }: { focus: MotionValue<number>; reduce
         <Lightformer form="circle" intensity={2.2} color="#ffb27a" scale={[6, 6, 1]} position={[9, -2, -3]} />
       </Environment>
 
-      {NODES.map((node, i) => (
-        <Prism key={node.key} index={i} node={node} focus={focus} reduced={reduced} spread={spread} baseY={baseY} fit={fit} />
-      ))}
+      {NODES.map((node, i) => {
+        // Phone: stack vertically (top→bottom), centred on x, no yaw. Otherwise:
+        // the classic side-by-side row, each prism yawed to face the camera.
+        const offsetX = compact ? 0 : spread * (i - 1)
+        const offsetY = compact ? vSpread * (1 - i) : 0
+        const yaw = compact ? 0 : Math.atan2(-(spread * (i - 1)), CAMERA_Z)
+        return (
+          <Prism
+            key={node.key}
+            index={i}
+            node={node}
+            focus={focus}
+            reduced={reduced}
+            offsetX={offsetX}
+            offsetY={offsetY}
+            yaw={yaw}
+            baseY={baseY}
+            fit={fit}
+          />
+        )
+      })}
 
       <Sparkles count={26} scale={[14, 6, 4]} size={1.6} speed={reduced ? 0 : 0.28} color={ACID} opacity={0.32} />
 

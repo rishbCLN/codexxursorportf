@@ -30,7 +30,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import SceneBoundary from './SceneBoundary'
 import type { ChangeEvent, CSSProperties } from 'react'
 import type { RenderedPdf } from './pdfPages'
-import { TOOLKIT_CLUSTERS, TOOLKIT_TOOLS } from './toolkitData'
+import { TOOLKIT_CLUSTERS } from './toolkitData'
 import Lenis from 'lenis'
 import ScrollApple from './ScrollApple'
 import { whenHeroReady } from './heroReady'
@@ -1359,11 +1359,9 @@ function PrinciplesSection() {
 }
 
 function TechnologySection() {
-  // A single ambient orbit of every tool logo around the glass "mind". Hovering
-  // (or tapping) a tool chip pulls its logo forward; nothing is scroll-driven,
-  // and there are no lobe "phases" — one continuous constellation.
-  const [activeTech, setActiveTech] = useState<string | null>(null)
-  const activeNode = useMotionValue(-1) // flat index of the hovered tool, -1 = none
+  // A single ambient orbit of every tool logo around the glass "mind". Nothing
+  // is scroll-driven and there are no lobe "phases" and no tool tags — just one
+  // continuous constellation that flows into the contact section.
   const accent = useMotionValue(TOOLKIT_CLUSTERS[0].accent) // static amber core
 
   // Viewport gate: the orbiting-logos cortex only holds its WebGL context while
@@ -1382,15 +1380,6 @@ function TechnologySection() {
     return () => mq.removeEventListener('change', sync)
   }, [])
 
-  function focusTool(flatIndex: number, name: string) {
-    setActiveTech(name)
-    activeNode.set(flatIndex)
-  }
-  function clearTool() {
-    setActiveTech(null)
-    activeNode.set(-1)
-  }
-
   return (
     <section className="technology-section" id="toolkit" ref={sceneRef}>
       <div className="toolkit-stage">
@@ -1400,7 +1389,7 @@ function TechnologySection() {
             fallback={<div className="toolkit-canvas scene-poster scene-poster--toolkit" aria-hidden="true" />}
           >
             <Suspense fallback={null}>
-              <ToolkitCortex active={activeNode} accent={accent} coarse={coarse} />
+              <ToolkitCortex accent={accent} coarse={coarse} />
             </Suspense>
           </SceneBoundary>
         )}
@@ -1408,29 +1397,6 @@ function TechnologySection() {
         <div className="toolkit-head">
           <div className="section-tag"><span>05</span> / TOOLKIT</div>
           <h2>TOOLS, CHOSEN<br /><i>WITH INTENTION.</i></h2>
-        </div>
-
-        <div className="toolkit-reader">
-          <div className="toolkit-chips">
-            {TOOLKIT_TOOLS.map((tool, flatIndex) => {
-              const isActive = activeTech === tool.name
-              return (
-                <button
-                  key={tool.name}
-                  className={`toolkit-chip${isActive ? ' is-active' : ''}`}
-                  aria-pressed={isActive}
-                  onMouseEnter={() => focusTool(flatIndex, tool.name)}
-                  onMouseLeave={clearTool}
-                  onFocus={() => focusTool(flatIndex, tool.name)}
-                  onBlur={clearTool}
-                  onClick={() => focusTool(flatIndex, tool.name)}
-                >
-                  <span className="toolkit-chip-name">{tool.name}</span>
-                  <i className="toolkit-chip-dot" />
-                </button>
-              )
-            })}
-          </div>
         </div>
       </div>
     </section>
