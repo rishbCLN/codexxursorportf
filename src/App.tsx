@@ -1954,7 +1954,6 @@ function ContactSection() {
   const reduced = false
   const [active, setActive] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
-  const [coarse, setCoarse] = useState(false)
   const [compact, setCompact] = useState(false)
   const focus = useMotionValue(-1)
 
@@ -1964,28 +1963,18 @@ function ContactSection() {
   const availMonth = now.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()
   const availYear = String(now.getFullYear()).slice(-2)
 
-  // The glass/bloom stage is a desktop-pointer experience: on touch or narrow
-  // screens (where the horizontal prism row can't track stacked cards, and
-  // transmission is costly) we skip the canvas and show flat cards instead.
-  // 600px matches the CSS breakpoint where the card grid collapses to 1 column,
-  // so the flat-card trigger and the layout collapse stay in lockstep.
+  // The prisms run on EVERY device. There are no flat contact "cards" anymore —
+  // no box, border, glyph tile, name or handle text around them. On every screen
+  // the presentation is the same: floating CTA pills over the glass prisms. We
+  // still track a narrow (<=600px) `compact` flag purely so the scene can stack
+  // the prisms vertically and tighten their scale for a phone frame.
   useEffect(() => {
-    const hoverMq = window.matchMedia('(hover: none), (pointer: coarse)')
     const widthMq = window.matchMedia('(max-width: 600px)')
-    const sync = () => { setCoarse(hoverMq.matches); setCompact(widthMq.matches) }
+    const sync = () => setCompact(widthMq.matches)
     sync()
-    hoverMq.addEventListener('change', sync)
     widthMq.addEventListener('change', sync)
-    return () => {
-      hoverMq.removeEventListener('change', sync)
-      widthMq.removeEventListener('change', sync)
-    }
+    return () => widthMq.removeEventListener('change', sync)
   }, [])
-  const flat = coarse || compact
-  // Creative showcase: the 3D prisms now run on EVERY device, phone included —
-  // they sit behind the flat stacked cards as the ambient 3D on touch/narrow
-  // screens, and drive the interactive prism row on desktop. `compact` is passed
-  // to the scene so it can tighten the prism spread + scale for a narrow frame.
   const showCanvas = canvasInView
 
   const enter = (i: number) => { setActive(i); focus.set(i) }
@@ -2002,7 +1991,7 @@ function ContactSection() {
   }
 
   return (
-    <section className={`contact${flat ? ' is-flat' : ''}`} id="contact" ref={ref}>
+    <section className="contact" id="contact" ref={ref}>
       <div className="contact-inner">
         <Reveal>
           <div className="section-tag"><span>06</span> / START A PROJECT</div>
