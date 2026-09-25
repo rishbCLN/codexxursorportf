@@ -528,6 +528,7 @@ function Loader() {
       { p: whenHeroReady(), w: 200, hero: true },
       { p: import('./ResearchArchive'), w: 12, hero: false },
       { p: import('./ToolkitCortex'), w: 70, hero: false },
+      { p: import('./ContactConstellation'), w: 10, hero: false },
       { p: import('./pdfPages'), w: 320, hero: false },
       ...projectImages.map((src) => ({ p: decodeImage(src), w: 200, hero: false })),
     ]
@@ -681,7 +682,7 @@ function Reveal({ children, className = '' }: { children: React.ReactNode; class
       className={className}
       initial={{ opacity: 0, y: 56 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-10%' }}
+      viewport={{ once: true, margin: '0px 0px 250px 0px' }}
       transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
     >
       {children}
@@ -1338,7 +1339,7 @@ function PrinciplesSection() {
             key={principle.number}
             initial={{ rotate: index % 2 === 0 ? -2 : 2, y: 70 }}
             whileInView={{ rotate: 0, y: 0 }}
-            viewport={{ once: true, margin: '-8%' }}
+            viewport={{ once: true, margin: '0px 0px 250px 0px' }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           >
             <div className="principle-top"><span>{principle.number} / 04</span><Asterisk /></div>
@@ -1699,7 +1700,7 @@ function ProjectArt({ project }: { project: typeof projects[number] }) {
         className="device-motion-stage"
         initial={{ opacity: 0, y: 190, rotateX: isPhone ? 32 : 22, rotateY: isPhone ? -94 : -78, scale: 0.82 }}
         whileInView={{ opacity: 1, y: 0, rotateX: 0, rotateY: 0, scale: 1 }}
-        viewport={{ once: true, amount: 0.32 }}
+        viewport={{ once: true, margin: '0px 0px 250px 0px' }}
         transition={{
           opacity: { duration: 0.55, ease: 'easeOut' },
           rotateY: { type: 'spring', stiffness: 58, damping: 15, mass: 1.1 },
@@ -1740,7 +1741,7 @@ function Project({ project, position }: { project: typeof projects[number], posi
         className="project-info"
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, amount: 0.35 }}
+        viewport={{ once: true, margin: '0px 0px 250px 0px' }}
       >
         <h3>
           {lines.map((line, i) => (
@@ -2010,7 +2011,9 @@ function ContactSection() {
   // Separate, LIVE (non-once) gate for the WebGL prisms so the context is
   // released when the section scrolls out of view — unlike `inView` above, which
   // is `once: true` because the text entrance should play only a single time.
-  const canvasInView = useInView(ref, { margin: '200px 0px 200px 0px' })
+  // Wide margin so the prism scene mounts/warms ~1.3 screens early and is ready
+  // before it enters view instead of popping in mid-scroll.
+  const canvasInView = useInView(ref, { margin: '1400px 0px 1400px 0px' })
   const footRef = useRef<HTMLDivElement>(null)
   const footInView = useInView(footRef, { once: true, margin: '-12%' })
   // Creative showcase: the contact prisms spin, sparkle and the text masks play

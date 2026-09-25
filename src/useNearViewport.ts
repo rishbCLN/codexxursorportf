@@ -10,12 +10,15 @@ import { useEffect, useRef, useState } from 'react'
  * stage unmounted and the section an empty void). Observing the STABLE OUTER
  * <section> with a generous `rootMargin` instead gives a dependable signal:
  *
- *   - fires `true` a bit BEFORE the section scrolls in (scene is ready, no void)
+ *   - fires `true` well BEFORE the section scrolls in (scene is ready, no pop)
  *   - stays `true` for the whole pinned scroll (the section straddles the root)
  *   - flips `false` only once the section is well past
  *
  * So the canvas mounts reliably yet the number of concurrent WebGL contexts
- * stays bounded (scenes still release when far off-screen).
+ * stays bounded (scenes still release when far off-screen). The default margin
+ * is deliberately generous (~1.3 screens) so the next section's heavy 3D layer
+ * has time to mount, compile shaders and upload textures BEFORE it enters view,
+ * instead of popping in abruptly mid-scroll.
  *
  * Usage:
  *   const [ref, near] = useNearViewport<HTMLElement>()
@@ -27,7 +30,7 @@ export function useNearViewport<T extends Element = HTMLElement>(
   const ref = useRef<T | null>(null)
   const [near, setNear] = useState(false)
 
-  const rootMargin = options?.rootMargin ?? '800px 0px 800px 0px'
+  const rootMargin = options?.rootMargin ?? '1400px 0px 1400px 0px'
   const threshold = options?.threshold ?? 0
 
   useEffect(() => {

@@ -137,7 +137,7 @@ function useCrystalGeometry() {
 
 // --- One levitating prism ------------------------------------------------
 
-const LIFT = 0.5 // world units a prism springs up when its card is hovered
+const LIFT = 0.4 // world units a prism springs up when hovered (trimmed so the spring peak clears the top of the frustum ~±2.58)
 const BOB = 0.1 // idle vertical hover amplitude (the "game pickup" float)
 
 function Prism({
@@ -324,10 +324,12 @@ function Scene({ focus, reduced }: { focus: MotionValue<number>; reduced: boolea
   // These MUST mirror the CSS inset: -28% (top/bottom) -24% (left/right).
   const OVERSCAN_X = 0.24
   const OVERSCAN_Y = 0.28
-  const PREV_OVERSCAN_Y = 0.12 // the baseY 0.16 factor was tuned at the old -12% inset
+  const PREV_OVERSCAN_Y = 0.12 // the baseY 0.11 factor was tuned at the old -12% inset
   const spread = viewport.width / (3 * (1 + 2 * OVERSCAN_X))
   // Seat the prisms a touch above the canvas centre — rescaled for the new inset.
-  const baseY = viewport.height * 0.16 * ((1 + 2 * PREV_OVERSCAN_Y) / (1 + 2 * OVERSCAN_Y))
+  // Kept low enough that a focused prism's hover spring-up stays inside the top
+  // of the fixed vertical frustum (~+2.58 world units) instead of clipping.
+  const baseY = viewport.height * 0.11 * ((1 + 2 * PREV_OVERSCAN_Y) / (1 + 2 * OVERSCAN_Y))
 
   return (
     <>
