@@ -24,7 +24,7 @@ import { siGithub, siGmail } from 'simple-icons'
 // The acid signal — unifies all three prisms regardless of brand colour.
 const ACID = '#e7b65c'
 const LOGO_FIT = 1.05 // world size a logo's largest axis is normalised to
-const CAMERA_Z = 9 // must match the <Canvas camera> z — used to aim each prism
+const CAMERA_Z = 9 // must match the <Canvas camera> z — used to aim each prism's mark at the lens
 
 type Brand = { path: string; hex: string }
 
@@ -63,13 +63,12 @@ function buildLogoGeometry(pathStr: string): THREE.BufferGeometry {
     if (!shapes.length) throw new Error('no shapes parsed from icon path')
 
     const extruded = new THREE.ExtrudeGeometry(shapes, {
-      depth: 6,
+      depth: 4,
       bevelEnabled: true,
-      bevelThickness: 1.2,
-      bevelSize: 0.55,
-      bevelSegments: 8,
-      curveSegments: 48,
-      steps: 1,
+      bevelThickness: 1,
+      bevelSize: 0.5,
+      bevelSegments: 3,
+      curveSegments: 16,
     })
     extruded.center()
     extruded.applyMatrix4(new THREE.Matrix4().makeScale(1, -1, 1)) // SVG is y-down
@@ -121,13 +120,13 @@ function useCrystalGeometry() {
   return useMemo(() => {
     // A sharp-faceted gem: an icosahedron made non-indexed so each face gets a
     // hard flat normal (every facet catches light on its own). It's elongated
-    // into a prism and grown ~1.5x for a bigger, more dimensional read, then the
+    // into a prism and grown ~1.6x for a bigger, more dimensional read, then the
     // whole solid is tipped off-vertical + phase-rotated so it always presents a
     // corner (never a flat face-on pane) — the fix for the GitHub prism reading
     // flat/"incomplete". The off-vertical tip also makes the continuous spin
     // gently tumble, so more facets sweep the light and it stays solidly 3D.
     const g = new THREE.IcosahedronGeometry(1, 0).toNonIndexed()
-    g.scale(1.0, 1.5, 1.0)
+    g.scale(1.0, 1.6, 1.0)
     g.rotateZ(0.18)
     g.rotateY(0.5)
     g.computeVertexNormals()
@@ -137,8 +136,7 @@ function useCrystalGeometry() {
 
 // --- One levitating prism ------------------------------------------------
 
-const LIFT = 0.4 // world units a prism springs up when its card is hovered
-                 // (kept modest so the lifted prism clears the canvas top edge — see baseY)
+const LIFT = 0.5 // world units a prism springs up when its card is hovered
 const BOB = 0.1 // idle vertical hover amplitude (the "game pickup" float)
 
 function Prism({
@@ -159,7 +157,7 @@ function Prism({
   const inner = useRef<THREE.Group>(null) // bobs + springs up
   const crystal = useRef<THREE.Mesh>(null) // the glass shell — spins freely
   const logo = useRef<THREE.Group>(null) // stays camera-facing, subtle sway
-  const iconMat = useRef<THREE.MeshPhysicalMaterial>(null)
+  const iconMat = useRef<THREE.MeshStandardMaterial>(null)
   const sparkMat = useRef<THREE.MeshBasicMaterial>(null)
   const glowMat = useRef<THREE.MeshBasicMaterial>(null)
   const glowMesh = useRef<THREE.Mesh>(null) // the pool scales with the prism's rise
@@ -229,9 +227,9 @@ function Prism({
   })
 
   return (
-    // Each prism is yawed to face the camera, so the mark that floats in FRONT of
-    // the glass (see the logo group below) sits exactly on the camera→prism sight
-    // line — it stays perfectly centred over its gem with no side-prism parallax.
+    // Each prism is yawed so its forward axis points at the camera; the mark that
+    // floats OUTSIDE the glass (see the logo group below) then sits exactly on the
+    // camera→prism sight line — centred over its gem with no side-prism parallax.
     <group
       position={[spread * (index - 1), 0, 0]}
       rotation={[0, Math.atan2(-(spread * (index - 1)), CAMERA_Z), 0]}
@@ -275,23 +273,18 @@ function Prism({
           />
         </mesh>
 
-        {/* the extruded brand mark — floated in FRONT of the glass (not embedded
-            inside it), so it reads crisp + fully lit instead of refracted/dimmed.
-            Hyper-detailed: dense curve + bevel tessellation, polished physical
-            metal with clearcoat that catches the environment. */}
-        <group ref={logo} position={[0, 0, 1.7]} scale={0.95}>
+        {/* the extruded brand mark, floated OUTSIDE (in front of) the glass so it
+            reads crisp + fully lit instead of refracted and dimmed through the gem */}
+        <group ref={logo} position={[0, 0, 1.6]} scale={1.0}>
           <mesh geometry={logoGeo}>
-            <meshPhysicalMaterial
+            <meshStandardMaterial
               ref={iconMat}
               color={tint}
               emissive={tint}
-              emissiveIntensity={0.18}
-              metalness={0.7}
-              roughness={0.22}
-              clearcoat={1}
-              clearcoatRoughness={0.15}
-              reflectivity={0.7}
-              envMapIntensity={1.7}
+              emissiveIntensity={0.28}
+              metalness={0.4}
+              roughness={0.28}
+              envMapIntensity={1.4}
               side={THREE.DoubleSide}
               toneMapped={false}
             />
@@ -322,18 +315,18 @@ function Prism({
 
 function Scene({ focus, reduced }: { focus: MotionValue<number>; reduced: boolean }) {
   const viewport = useThree((s) => s.viewport)
-  // The canvas box now exactly overlaps the 3-column DOM grid (see .contact-stage),
-  // so a third of the visible width lands each prism dead-centre over its column,
-  // and a slice of the height seats them in each card's upper zone (caption below).
-  const spread = viewport.width / 3
-  // Seat the prisms just above the canvas centre. This is deliberately low: the
-  // crystal is tall (~1.35 world half-height, ×1.05 when it swells on hover) and
-  // the camera fixes the visible top edge at +viewport.height/2 (≈2.58). The
-  // no-clip invariant that keeps a lifted prism from being cut off by the canvas
-  // boundary (which sits just under the lede) is:
-  //   baseY + LIFT + BOB + crystalHalf*swell  <  viewport.height/2
-  // → 0.41 + 0.40 + 0.10 + 1.42 ≈ 2.33 < 2.58  (≈0.25 world / 10% clearance for bloom). ✓
-  const baseY = viewport.height * 0.08
+  // The canvas is intentionally larger than the visible stage (see the
+  // .contact-canvas-layer inset) so a prism can swell / rise on hover without the
+  // canvas edge clipping it. We divide that overscan back out here so each prism
+  // still lands a third of the STAGE width apart and at the same height as before
+  // — the extra canvas is pure headroom, the on-screen placement is unchanged.
+  // These MUST mirror the CSS inset: -28% (top/bottom) -24% (left/right).
+  const OVERSCAN_X = 0.24
+  const OVERSCAN_Y = 0.28
+  const PREV_OVERSCAN_Y = 0.12 // the baseY 0.16 factor was tuned at the old -12% inset
+  const spread = viewport.width / (3 * (1 + 2 * OVERSCAN_X))
+  // Seat the prisms a touch above the canvas centre — rescaled for the new inset.
+  const baseY = viewport.height * 0.16 * ((1 + 2 * PREV_OVERSCAN_Y) / (1 + 2 * OVERSCAN_Y))
 
   return (
     <>

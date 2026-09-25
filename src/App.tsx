@@ -1821,11 +1821,62 @@ const CONTACT_NODES: { key: string; label: string; handle: string; href: string;
   { key: 'email', label: 'Email', handle: 'hello@alexrivera.dev', href: 'mailto:hello@alexrivera.dev', cta: 'Send an email', Icon: Mail },
 ]
 
+// The prism stage resolves as one piece: the whole canvas WRAPPER (never the 3D
+// scene inside — that stays untouched) fades up out of a soft blur and settles to
+// full clarity, like the constellation coming into focus.
+const canvasReveal: Variants = {
+  rest: { opacity: 0, scale: 0.94, filter: 'blur(12px)' },
+  show: { opacity: 1, scale: 1, filter: 'blur(0px)' },
+}
+
 const ctaVariants: Variants = {
-  // Hidden by default. On hover it EMERGES — fading up out of a soft blur and
-  // resolving to a crisp, solid button as it settles beneath the prism.
-  rest: { y: -20, scale: 0.94, opacity: 0, filter: 'blur(14px)' },
-  show: { y: 0, scale: 1, opacity: 1, filter: 'blur(0px)' },
+  // Each CTA resolves a beat after the prisms — a quiet rise out of a light blur
+  // into a crisp, tappable control. Driven by the grid's stagger container below,
+  // so the three arrive one-after-another as the section settles, then stay.
+  rest: { y: 24, opacity: 0, filter: 'blur(10px)' },
+  show: { y: 0, opacity: 1, filter: 'blur(0px)' },
+}
+
+// Parent container: holds the buttons hidden until the section is in view, then
+// releases them in a delayed, staggered cascade (after the prisms have settled).
+const gridStagger: Variants = {
+  rest: {},
+  show: { transition: { delayChildren: 0.7, staggerChildren: 0.16 } },
+}
+
+// The headline resolves line-by-line out of an overflow mask — the same rising
+// wipe the hero opens with, so the closing title rhymes with the first one. The
+// middle line carries the lone acid bloom as it lands (the serif accent word),
+// keeping amber a deliberate one-time accent rather than ambient decoration.
+const CONTACT_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1]
+const contactMask: Variants = {
+  hidden: { y: '115%' },
+  show: (i = 0) => ({ y: 0, transition: { delay: 0.1 + i * 0.12, duration: 1, ease: CONTACT_EASE } }),
+}
+const contactMaskGlow: Variants = {
+  hidden: { y: '115%', filter: 'brightness(2.4)' },
+  show: (i = 0) => ({
+    y: 0,
+    filter: 'brightness(1)',
+    transition: {
+      delay: 0.1 + i * 0.12,
+      duration: 1.05,
+      ease: CONTACT_EASE,
+      filter: { delay: 0.1 + i * 0.12 + 0.26, duration: 0.85, ease: 'easeOut' },
+    },
+  }),
+}
+
+// The closing rows (copy/availability, footer, utility) share one entrance,
+// fired by their own in-view trigger so the cascade is actually seen when the
+// foot scrolls up — a quiet, staggered fade-rise that lands the section.
+const footReveal: Variants = {
+  rest: {},
+  show: { transition: { delayChildren: 0.08, staggerChildren: 0.12 } },
+}
+const footItem: Variants = {
+  rest: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: CONTACT_EASE } },
 }
 
 function ContactNode({
@@ -1833,7 +1884,6 @@ function ContactNode({
   index,
   active,
   reduced,
-  revealed,
   onEnter,
   onLeave,
 }: {
@@ -1841,16 +1891,16 @@ function ContactNode({
   index: number
   active: number | null
   reduced: boolean
-  revealed: boolean
   onEnter: (i: number) => void
   onLeave: () => void
 }) {
   const ref = useRef<HTMLAnchorElement>(null)
   const mx = useMotionValue(0)
   const my = useMotionValue(0)
-  // Pointer position over the card drives a real 3D tilt on the glass button.
-  const rotX = useTransform(my, [-30, 30], [11, -11])
-  const rotY = useTransform(mx, [-30, 30], [-13, 13])
+  // Pointer position over the card drives a real 3D tilt on the CTA control —
+  // damped for a subtle, premium lean rather than a toy wobble.
+  const rotX = useTransform(my, [-30, 30], [8, -8])
+  const rotY = useTransform(mx, [-30, 30], [-10, 10])
   const external = node.href.startsWith('http')
   const isActive = active === index
 
@@ -1868,27 +1918,21 @@ function ContactNode({
       onMouseMove={(event) => {
         const rect = ref.current?.getBoundingClientRect()
         if (!rect || reduced) return
-        mx.set((event.clientX - rect.left - rect.width / 2) * 0.14)
-        my.set((event.clientY - rect.top - rect.height / 2) * 0.14)
+        mx.set((event.clientX - rect.left - rect.width / 2) * 0.11)
+        my.set((event.clientY - rect.top - rect.height / 2) * 0.11)
       }}
       onMouseLeave={() => { mx.set(0); my.set(0); onLeave() }}
     >
-      <span className="contact-node-frame" aria-hidden="true" />
-      <span className="contact-node-index" aria-hidden="true">0{index + 1}</span>
       <span className="contact-node-glyph" aria-hidden="true"><node.Icon /></span>
       <span className="contact-node-name">{node.label}</span>
 
       <motion.span
         className="contact-cta"
-        initial={false}
-        animate={revealed || isActive ? 'show' : 'rest'}
         variants={ctaVariants}
         transition={
           reduced
             ? { duration: 0.001 }
-            : revealed || isActive
-              ? { type: 'spring', stiffness: 420, damping: 24, delay: 0.06, opacity: { duration: 0.3, delay: 0.05 }, filter: { duration: 0.44, delay: 0.05, ease: [0.22, 1, 0.36, 1] } }
-              : { type: 'spring', stiffness: 600, damping: 32, opacity: { duration: 0.2 }, filter: { duration: 0.22 } }
+            : { type: 'spring', stiffness: 240, damping: 26, mass: 0.9, opacity: { duration: 0.55 }, filter: { duration: 0.72, ease: [0.22, 1, 0.36, 1] } }
         }
       >
         <motion.span
@@ -1908,6 +1952,8 @@ function ContactNode({
 function ContactSection() {
   const ref = useRef<HTMLElement>(null)
   const inView = useInView(ref, { once: true, margin: '200px 0px' })
+  const footRef = useRef<HTMLDivElement>(null)
+  const footInView = useInView(footRef, { once: true, margin: '-12%' })
   const reduced = !!useReducedMotion()
   const [active, setActive] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
@@ -1915,10 +1961,15 @@ function ContactSection() {
   const [compact, setCompact] = useState(false)
   const focus = useMotionValue(-1)
 
+  // Availability badge stays current on its own — derived from the clock, never
+  // a hard-coded month that silently goes stale.
+  const now = new Date()
+  const availMonth = now.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()
+  const availYear = String(now.getFullYear()).slice(-2)
+
   // The glass/bloom stage is a desktop-pointer experience: on touch or narrow
   // screens (where the horizontal prism row can't track stacked cards, and
-  // transmission is costly) we skip the canvas and show flat cards instead, with
-  // the CTAs revealed up front since there's nothing to hover.
+  // transmission is costly) we skip the canvas and show flat cards instead.
   useEffect(() => {
     const hoverMq = window.matchMedia('(hover: none), (pointer: coarse)')
     const widthMq = window.matchMedia('(max-width: 760px)')
@@ -1932,11 +1983,6 @@ function ContactSection() {
     }
   }, [])
   const flat = coarse || compact
-  // Reveal the CTAs up front ONLY where there's no hover to trigger them (touch /
-  // narrow = `flat`). Reduced-motion must NOT force them visible — a reduced-motion
-  // desktop still has a mouse, so it stays hover-gated and just reveals instantly
-  // (see the CTA transition branch) instead of animating.
-  const revealed = flat
   const showCanvas = inView && !flat
 
   const enter = (i: number) => { setActive(i); focus.set(i) }
@@ -1957,13 +2003,37 @@ function ContactSection() {
       <div className="contact-inner">
         <Reveal>
           <div className="section-tag"><span>06</span> / START A PROJECT</div>
-          <h2 className="contact-title">HAVE AN IDEA<br />THAT <i>SHOULDN&rsquo;T</i><br />BE POSSIBLE?</h2>
         </Reveal>
+        <h2 className="contact-title" aria-label="Have an idea that shouldn't be possible?">
+          <span className="contact-line" aria-hidden="true">
+            <motion.span variants={contactMask} custom={0} initial={reduced ? false : 'hidden'} animate={reduced ? 'show' : inView ? 'show' : 'hidden'}>HAVE AN IDEA</motion.span>
+          </span>
+          <span className="contact-line" aria-hidden="true">
+            <motion.span variants={contactMaskGlow} custom={1} initial={reduced ? false : 'hidden'} animate={reduced ? 'show' : inView ? 'show' : 'hidden'}>THAT <i>SHOULDN&rsquo;T</i></motion.span>
+          </span>
+          <span className="contact-line" aria-hidden="true">
+            <motion.span variants={contactMask} custom={2} initial={reduced ? false : 'hidden'} animate={reduced ? 'show' : inView ? 'show' : 'hidden'}>BE POSSIBLE?</motion.span>
+          </span>
+        </h2>
 
-        <p className="contact-lede">Pick a channel. Three ways to reach a real human.</p>
+        <motion.p
+          className="contact-lede"
+          initial={reduced ? false : { opacity: 0, y: 14 }}
+          animate={inView ? { opacity: 1, y: 0 } : undefined}
+          transition={{ duration: 0.8, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        >
+          Pick a channel. Three ways to reach a real human.
+        </motion.p>
 
         <div className="contact-stage">
-          <div className="contact-canvas-layer" aria-hidden="true">
+          <motion.div
+            className="contact-canvas-layer"
+            aria-hidden="true"
+            initial="rest"
+            animate={showCanvas ? 'show' : 'rest'}
+            variants={canvasReveal}
+            transition={reduced ? { duration: 0.001 } : { duration: 1.25, ease: [0.16, 1, 0.3, 1] }}
+          >
             {showCanvas && (
               <SceneBoundary label="ContactConstellation">
                 <Suspense fallback={null}>
@@ -1971,26 +2041,46 @@ function ContactSection() {
                 </Suspense>
               </SceneBoundary>
             )}
-          </div>
+          </motion.div>
 
-          <div className={`contact-grid${active != null ? ' is-engaged' : ''}`}>
+          <motion.div
+            className={`contact-grid${active != null ? ' is-engaged' : ''}`}
+            initial="rest"
+            animate={inView ? 'show' : 'rest'}
+            variants={gridStagger}
+          >
             {CONTACT_NODES.map((node, i) => (
-              <ContactNode key={node.key} node={node} index={i} active={active} reduced={reduced} revealed={revealed} onEnter={enter} onLeave={leave} />
+              <ContactNode key={node.key} node={node} index={i} active={active} reduced={reduced} onEnter={enter} onLeave={leave} />
             ))}
-          </div>
+          </motion.div>
         </div>
       </div>
 
-      <div className="contact-foot">
-        <div className="contact-foot-lead">
-          <button type="button" className={`contact-copy${copied ? ' is-copied' : ''}`} onClick={copyEmail}>
-            <span>{copied ? 'COPIED TO CLIPBOARD' : 'hello@alexrivera.dev'}</span>
+      <motion.div
+        className="contact-foot"
+        ref={footRef}
+        initial={reduced ? false : 'rest'}
+        animate={reduced ? 'show' : footInView ? 'show' : 'rest'}
+        variants={footReveal}
+      >
+        <motion.div className="contact-foot-lead" variants={footItem}>
+          <button
+            type="button"
+            className={`contact-copy${copied ? ' is-copied' : ''}`}
+            onClick={copyEmail}
+            aria-label={copied ? 'Email address copied to clipboard' : 'Copy email address hello@alexrivera.dev'}
+          >
+            <span className="contact-copy-swap" aria-hidden="true">
+              <span>hello@alexrivera.dev</span>
+              <span>COPIED TO CLIPBOARD</span>
+            </span>
             {copied ? <Check /> : <Copy />}
+            <span className="sr-only" aria-live="polite">{copied ? 'Email address copied to clipboard' : ''}</span>
           </button>
-          <span className="contact-avail"><i /> AVAILABLE FOR NEW WORK &mdash; SEPT &rsquo;26</span>
-        </div>
+          <span className="contact-avail"><i />AVAILABLE FOR NEW WORK &mdash; {availMonth} &rsquo;{availYear}</span>
+        </motion.div>
 
-        <footer>
+        <motion.footer variants={footItem}>
           <a href="#top" className="footer-mark">AR<sup>26</sup></a>
           <p>INDEPENDENT CREATIVE DEVELOPER<br />NEW YORK / WORKING GLOBALLY</p>
           <div className="socials">
@@ -1999,10 +2089,10 @@ function ContactSection() {
             <a href="mailto:hello@alexrivera.dev" aria-label="Email"><Mail /></a>
           </div>
           <a href="#top" className="back-top">BACK TO TOP <ArrowUpRight /></a>
-        </footer>
+        </motion.footer>
 
-        <div className="contact-utility"><LiveClock /><span>&copy; 2026 ALEX RIVERA</span><SoundControl /></div>
-      </div>
+        <motion.div className="contact-utility" variants={footItem}><LiveClock /><span>&copy; 2026 ALEX RIVERA</span><SoundControl /></motion.div>
+      </motion.div>
     </section>
   )
 }
