@@ -147,6 +147,7 @@ function Prism({
   reduced,
   spread,
   baseY,
+  fit,
 }: {
   index: number
   node: { key: string; icon: Brand; tint: string }
@@ -154,6 +155,7 @@ function Prism({
   reduced: boolean
   spread: number
   baseY: number
+  fit: number
 }) {
   const inner = useRef<THREE.Group>(null) // bobs + springs up
   const crystal = useRef<THREE.Mesh>(null) // the glass shell — spins freely
@@ -207,7 +209,9 @@ function Prism({
     // Focused prism barely swells + rides slightly forward; a passed-over sibling recedes.
     g.position.y = baseY + bob + lift.current * LIFT - other * 0.14
     g.position.z = 0.22 * m - 0.25 * other
-    g.scale.setScalar(1 + 0.05 * m - 0.04 * other)
+    // `fit` shrinks the whole prism on a narrow/portrait frame so it never grows
+    // larger than its slot or clips the section edge; hover swell rides on top.
+    g.scale.setScalar(fit * (1 + 0.05 * m - 0.04 * other))
 
     if (crystal.current) {
       // The glass spins continuously and a hair faster on hover — catches the light.
@@ -331,6 +335,14 @@ function Scene({ focus, reduced }: { focus: MotionValue<number>; reduced: boolea
   // of the fixed vertical frustum (~+2.58 world units) instead of clipping.
   const baseY = viewport.height * 0.11 * ((1 + 2 * PREV_OVERSCAN_Y) / (1 + 2 * OVERSCAN_Y))
 
+  // Aspect-fit: on a narrow/portrait frame the visible world width shrinks, so
+  // the fixed-size prisms would grow oversized relative to their slot and clip
+  // the section edges. Scale them down to fit; never above 1 so desktop is
+  // unchanged. DESIGN_WIDTH ≈ the world width at the prism plane on desktop
+  // (fov 32, z 9, ~16:9), already accounting for the canvas overscan.
+  const DESIGN_WIDTH = 8.8
+  const fit = THREE.MathUtils.clamp(viewport.width / (DESIGN_WIDTH * (1 + 2 * OVERSCAN_X)), 0.5, 1)
+
   return (
     <>
       <color attach="background" args={['#070510']} />
@@ -348,7 +360,7 @@ function Scene({ focus, reduced }: { focus: MotionValue<number>; reduced: boolea
       </Environment>
 
       {NODES.map((node, i) => (
-        <Prism key={node.key} index={i} node={node} focus={focus} reduced={reduced} spread={spread} baseY={baseY} />
+        <Prism key={node.key} index={i} node={node} focus={focus} reduced={reduced} spread={spread} baseY={baseY} fit={fit} />
       ))}
 
       <Sparkles count={26} scale={[14, 6, 4]} size={1.6} speed={reduced ? 0 : 0.28} color={ACID} opacity={0.32} />

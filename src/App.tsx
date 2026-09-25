@@ -1379,6 +1379,18 @@ function TechnologySection() {
   // flips reliably instead of leaving the stage blank.
   const [sceneRef, sceneInView] = useNearViewport<HTMLElement>()
 
+  // On touch/coarse pointers there's no real hover cursor, and scroll-driven
+  // pointer values would otherwise knock the orbiting logos away from the glass
+  // sphere. We pass this down so the cortex disables its cursor-repulsion there.
+  const [coarse, setCoarse] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(hover: none), (pointer: coarse)')
+    const sync = () => setCoarse(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
+
   useMotionValueEvent(scrollYProgress, 'change', (value) => {
     const next = Math.round(clamp01(value) * last)
     if (next !== clusterRef.current) {
@@ -1418,7 +1430,7 @@ function TechnologySection() {
               fallback={<div className="toolkit-canvas scene-poster scene-poster--toolkit" aria-hidden="true" />}
             >
               <Suspense fallback={null}>
-                <ToolkitCortex progress={scrollYProgress} active={activeNode} accent={accent} />
+                <ToolkitCortex progress={scrollYProgress} active={activeNode} accent={accent} coarse={coarse} />
               </Suspense>
             </SceneBoundary>
           )}
@@ -2053,9 +2065,11 @@ function ContactSection() {
   }, [])
   const flat = coarse || compact
   // Creative showcase: the 3D stage runs on every desktop, even when the OS
-  // reports a coarse/dual pointer. `flat` still drives the fallback layout
-  // classes, but no longer suppresses the canvas itself.
-  const showCanvas = canvasInView
+  // reports a coarse/dual pointer. On a genuinely narrow PHONE (`compact`) we
+  // drop the canvas entirely — the prism row can't track the vertical flat-card
+  // stack there and would just float behind it oversized — and rely on the flat
+  // cards. Tablet + desktop keep the 3D prisms (now aspect-fit scaled).
+  const showCanvas = canvasInView && !compact
 
   const enter = (i: number) => { setActive(i); focus.set(i) }
   const leave = () => { setActive(null); focus.set(-1) }

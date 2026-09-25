@@ -1,7 +1,8 @@
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useWebGLResilience } from './useWebGLResilience'
 import { Environment, Lightformer, MeshTransmissionMaterial } from '@react-three/drei'
 import { Suspense, useMemo, useRef } from 'react'
+import type { MutableRefObject } from 'react'
 import { useSpring, useTransform } from 'framer-motion'
 import type { MotionValue } from 'framer-motion'
 import * as THREE from 'three'
@@ -110,12 +111,27 @@ const _up = new THREE.Vector3()
 const _push = new THREE.Vector3()
 
 // Cursor-repulsion tuning: logos get bumped away when the pointer sweeps over
-// them, then spring back. Tuned loose + reactive so they scatter and wobble.
+// them, then spring back. Kept SHORT so a knocked logo never wanders far from
+// its orbit / the central glass sphere (and never drifts out to clip the
+// section edge). The offset cap is further scaled by the aspect-fit factor at
+// runtime, so on a narrow phone the wander is tiny.
 const CURSOR_R = 0.72 // hover radius in aspect-corrected NDC (bigger = more sensitive)
 const CURSOR_FORCE = 20 // shove strength
 const SPRING_K = 17 // pull back to the orbit slot (lower = floatier, travels further)
 const SPRING_DAMP = 3.6 // lower = more springy wobble before it settles
-const MAX_OFFSET = 2.4 // how far a logo can be knocked
+const MAX_OFFSET = 1.0 // how far a logo can be knocked (reined in — stays near the sphere)
+
+// Aspect-fit: the orbit + mind are authored to fill a ~desktop-width frustum.
+// On a narrower/portrait frame the horizontal world extent shrinks, so we scale
+// the whole constellation DOWN to keep the outer ring (and every logo) inside
+// the frame instead of overflowing/clipping. Never scales ABOVE 1, so desktop
+// is pixel-for-pixel unchanged. DESIGN_WIDTH ≈ the world width at the orbit
+// plane on desktop (fov 34, z 8.4).
+const DESIGN_WIDTH = 8.3
+const MIN_FIT = 0.42
+function fitFor(viewportWidth: number): number {
+  return THREE.MathUtils.clamp(viewportWidth / DESIGN_WIDTH, MIN_FIT, 1)
+}
 
 // --- Extruded-logo geometry ---------------------------------------------
 
@@ -184,10 +200,14 @@ function Logo({
   index,
   focus,
   active,
+  coarse,
+  fit,
 }: {
   index: number
   focus: MotionValue<number>
   active: MotionValue<number>
+  coarse: boolean
+  fit: MutableRefObject<number>
 }) {
   const tool = TOOLKIT_TOOLS[index]
   const ring = tool.cluster
@@ -228,32 +248,40 @@ function Logo({
     _pos.addScaledVector(_dir, pull)
 
     // --- Cursor push: if the pointer sweeps near this logo on screen, shove it
-    // away in the camera plane; a spring pulls it back to its orbit slot. ---
+    // away in the camera plane; a spring pulls it back to its orbit slot. On
+    // touch/coarse pointers this is skipped entirely — there's no real hover
+    // cursor, and scroll-driven pointer values would otherwise knock logos
+    // adrift from the sphere. ---
     const off = offset.current
     const vel = velocity.current
     const cam = state.camera
-    _screen.copy(_pos).project(cam)
-    if (_screen.z < 1) {
-      const aspect = state.size.width / Math.max(1, state.size.height)
-      const dx = (_screen.x - state.pointer.x) * aspect
-      const dy = _screen.y - state.pointer.y
-      const dist = Math.hypot(dx, dy)
-      if (dist < CURSOR_R) {
-        // eased falloff — a near-direct hit shoves much harder than a graze
-        const n = 1 - dist / CURSOR_R
-        const strength = n * n
-        const inv = dist > 1e-4 ? 1 / dist : 0
-        _right.setFromMatrixColumn(cam.matrixWorld, 0)
-        _up.setFromMatrixColumn(cam.matrixWorld, 1)
-        _push.copy(_right).multiplyScalar(dx * inv).addScaledVector(_up, dy * inv)
-        vel.addScaledVector(_push, strength * CURSOR_FORCE * dt)
+    if (!coarse) {
+      _screen.copy(_pos).project(cam)
+      if (_screen.z < 1) {
+        const aspect = state.size.width / Math.max(1, state.size.height)
+        const dx = (_screen.x - state.pointer.x) * aspect
+        const dy = _screen.y - state.pointer.y
+        const dist = Math.hypot(dx, dy)
+        if (dist < CURSOR_R) {
+          // eased falloff — a near-direct hit shoves much harder than a graze
+          const n = 1 - dist / CURSOR_R
+          const strength = n * n
+          const inv = dist > 1e-4 ? 1 / dist : 0
+          _right.setFromMatrixColumn(cam.matrixWorld, 0)
+          _up.setFromMatrixColumn(cam.matrixWorld, 1)
+          _push.copy(_right).multiplyScalar(dx * inv).addScaledVector(_up, dy * inv)
+          vel.addScaledVector(_push, strength * CURSOR_FORCE * dt)
+        }
       }
     }
     // spring back toward the slot + damping
     vel.addScaledVector(off, -SPRING_K * dt)
     vel.multiplyScalar(Math.max(0, 1 - SPRING_DAMP * dt))
     off.addScaledVector(vel, dt)
-    if (off.lengthSq() > MAX_OFFSET * MAX_OFFSET) off.setLength(MAX_OFFSET)
+    // Cap the wander, tightened further on narrow frames (fit<1) so a knocked
+    // logo can never drift far from the sphere or out to the section edge.
+    const maxOff = MAX_OFFSET * fit.current
+    if (off.lengthSq() > maxOff * maxOff) off.setLength(maxOff)
     _pos.add(off)
 
     g.position.copy(_pos)
@@ -395,13 +423,27 @@ function Scene({
   progress,
   active,
   accent,
+  coarse,
 }: {
   progress: MotionValue<number>
   active: MotionValue<number>
   accent: MotionValue<string>
+  coarse: boolean
 }) {
   const smooth = useSpring(progress, { stiffness: 68, damping: 26, mass: 0.4, restDelta: 0.0004 })
   const focus = useTransform(smooth, (p) => THREE.MathUtils.clamp(p, 0, 1) * 3)
+
+  // Aspect-fit scale for the whole constellation. Recomputed from the live
+  // viewport width and applied to the root group each frame, so the outer ring
+  // + every logo stay inside a narrow/portrait frame instead of clipping. The
+  // ref is shared with each Logo so the wander cap scales down with it too.
+  const viewportWidth = useThree((s) => s.viewport.width)
+  const fit = useRef(fitFor(viewportWidth))
+  const root = useRef<THREE.Group>(null)
+  useFrame(() => {
+    fit.current = fitFor(viewportWidth)
+    if (root.current) root.current.scale.setScalar(fit.current)
+  })
 
   return (
     <>
@@ -420,13 +462,15 @@ function Scene({
         <Lightformer form="circle" intensity={2.2} color="#ffb27a" scale={[6, 6, 1]} position={[9, -2, -3]} />
       </Environment>
 
-      <Mind accent={accent} />
-      {[0, 1, 2, 3].map((ring) => (
-        <RingGuide key={ring} ring={ring} focus={focus} />
-      ))}
-      {TOOLKIT_TOOLS.map((_, index) => (
-        <Logo key={index} index={index} focus={focus} active={active} />
-      ))}
+      <group ref={root}>
+        <Mind accent={accent} />
+        {[0, 1, 2, 3].map((ring) => (
+          <RingGuide key={ring} ring={ring} focus={focus} />
+        ))}
+        {TOOLKIT_TOOLS.map((_, index) => (
+          <Logo key={index} index={index} focus={focus} active={active} coarse={coarse} fit={fit} />
+        ))}
+      </group>
     </>
   )
 }
@@ -435,10 +479,12 @@ export default function ToolkitCortex({
   progress,
   active,
   accent,
+  coarse = false,
 }: {
   progress: MotionValue<number>
   active: MotionValue<number>
   accent: MotionValue<string>
+  coarse?: boolean
 }) {
   const { canvasKey, onCreated } = useWebGLResilience()
   return (
@@ -451,7 +497,7 @@ export default function ToolkitCortex({
         gl={{ antialias: true, powerPreference: 'high-performance' }}
       >
         <Suspense fallback={null}>
-          <Scene progress={progress} active={active} accent={accent} />
+          <Scene progress={progress} active={active} accent={accent} coarse={coarse} />
         </Suspense>
       </Canvas>
     </div>

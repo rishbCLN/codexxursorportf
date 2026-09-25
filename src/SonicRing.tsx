@@ -39,6 +39,16 @@ const RING_WAIT_Y = 0.27
 const flash = cubicBezier(0.7, 0, 0.3, 1)
 const ease = cubicBezier(0.4, 0, 0.2, 1)
 
+// Aspect-fit: the ring is authored to sit correctly in a ~desktop-width frame.
+// On a narrow/portrait phone the horizontal world extent shrinks, so we scale
+// the ring DOWN to keep its full diameter inside the frame (and inside the
+// fingertip gap) instead of overflowing the sides. Never above 1, so desktop is
+// unchanged. DESIGN_WIDTH ≈ the world width at the ring plane on desktop
+// (fov 30, z 6, ~16:9).
+const DESIGN_WIDTH = 5.4
+const MIN_FIT = 0.5
+const fitFor = (viewportWidth: number) => THREE.MathUtils.clamp(viewportWidth / DESIGN_WIDTH, MIN_FIT, 1)
+
 // Smootherstep: 6a^5 - 15a^4 + 10a^3. Value AND velocity are zero at both
 // ends, so a rotation built on it accelerates and decelerates with no snap.
 const smoother = (a: number) => a * a * a * (a * (a * 6 - 15) + 10)
@@ -67,7 +77,7 @@ function Ring({ progress }: { progress: MotionValue<number> }) {
   const spinner = useRef<THREE.Group>(null)
   const mat = useRef<THREE.MeshStandardMaterial>(null)
   const wrapRef = useRef<Element | null>(null)
-  const { camera, size } = useThree()
+  const { camera, size, viewport } = useThree()
 
   // Grow small -> rest, then blow up as we dive into the hole.
   const scale = useTransform(
@@ -129,7 +139,9 @@ function Ring({ progress }: { progress: MotionValue<number> }) {
     }
 
     if (group.current) {
-      group.current.scale.setScalar(scale.get())
+      // Aspect-fit keeps the ring inside a narrow/portrait frame; it multiplies
+      // the animated scale so the grow + dive-blowup stay proportional.
+      group.current.scale.setScalar(scale.get() * fitFor(viewport.width))
 
       // Waits at the clasp point (centered between fingertips) then smoothly
       // drifts to dead centre (0, 0) by STOP so the dive & warp stay centered.
