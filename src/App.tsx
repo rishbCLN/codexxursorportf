@@ -1052,42 +1052,31 @@ function ArchiveResearch() {
   const prefersReduced = useReducedMotion()
   const accent = useMotionValue(researchPapers[0].accent)
 
-  // The pinned track runs in two phases. The first READING_SPAN drives the reading
-  // room itself — WebGL focus, the meter, the active paper. The remainder is the
-  // exit: the whole reading-room screen is dragged left (led by the last glass
-  // slab, which GlassSlab already throws leftward) while the book's binding — the
-  // transition joint — is pulled in from the right. Only once the binding lands
-  // centre does the pin release and normal vertical scroll carry on into 04.
+  // The pinned track runs in two phases:
+  // Phase 1 (0.00 -> 0.72): Reading room exploration. Focus advances across the glass monoliths.
+  // Phase 2 (0.72 -> 1.00): The Optical Plunge. The 3D camera dives into the final refractive slab,
+  // chromatic aberration & distortion surge, text UI fades & blurs away, and a razor-thin golden
+  // laser horizon ignites across the bottom, seamlessly meeting Section 04 as the stage unpins.
+  const READING_SPAN = 0.72
   const reading = useTransform(scrollYProgress, [0, READING_SPAN], [0, 1], { clamp: true })
   const exitRaw = useTransform(scrollYProgress, [READING_SPAN, 1], [0, 1], { clamp: true })
-  const exitSmooth = useSpring(exitRaw, { stiffness: 90, damping: 28, mass: 0.5, restDelta: 0.0004 })
-  // Reduced motion scrubs the pan straight from scroll (no spring lag); it's a
-  // transition the user is physically dragging, not autoplaying motion.
+  const exitSmooth = useSpring(exitRaw, { stiffness: 85, damping: 28, mass: 0.45, restDelta: 0.0004 })
   const exit = prefersReduced ? exitRaw : exitSmooth
   const meterScale = useSpring(reading, { stiffness: 120, damping: 30, mass: 0.35 })
 
-  // Scroll velocity gives the drag its weight: a fast flick throws the room a few
-  // vw further and flares the seam. Suppressed under reduced motion.
-  const velocity = useVelocity(scrollYProgress)
-  const vel = useSpring(velocity, { stiffness: 170, damping: 44, mass: 0.4 })
+  // DOM elements gracefully dissolve and part ways during exit (0.0 -> 0.35)
+  const domOpacity = useTransform(exit, [0, 0.32], [1, 0], { clamp: true })
+  const headY = useTransform(exit, [0, 0.36], [0, -32], { clamp: true })
+  const ledgerX = useTransform(exit, [0, 0.36], [0, 48], { clamp: true })
+  const readerY = useTransform(exit, [0, 0.36], [0, 32], { clamp: true })
+  const stageScale = useTransform(exit, [0.3, 1], [1, 0.94], { clamp: true })
+  const stageBlur = useTransform(exit, [0.35, 1], [0, 8], { clamp: true })
+  const stageFilter = useTransform(stageBlur, (v) => prefersReduced ? 'none' : `blur(${v}px)`)
 
-  // The rail carries the room (panel 0) and the binding (panel 1); the exit pans
-  // it one viewport left, with a little velocity lead in the travel direction.
-  const baseVW = useTransform(exit, [0, 1], [0, -100], { clamp: true })
-  const leadVW = useTransform(vel, [-2.5, 2.5], [4, -4], { clamp: true })
-  const railX = useTransform<number, string>([baseVW, leadVW], ([b, l]: number[]) => `${b + (prefersReduced ? 0 : l)}vw`)
-
-  // The room recedes + dims as it's dragged off; the binding settles as it lands.
-  const roomDim = useTransform(exit, [0, 0.85], [1, 0.4], { clamp: true })
-  const roomScale = useTransform(exit, [0, 1], [1, 0.965], { clamp: true })
-  const jointRise = useTransform(exit, [0.1, 0.9], [64, 0], { clamp: true })
-  const jointFade = useTransform(exit, [0.06, 0.55], [0, 1], { clamp: true })
-  // The seam is gated off during reading, then rides scroll velocity as it sweeps.
-  const seamOpacity = useTransform<number, number>([exit, vel], ([e, v]: number[]) => {
-    const gate = clamp01((e - 0.02) / 0.12)
-    const glow = prefersReduced ? 0.5 : 0.5 + Math.min(0.5, Math.abs(v) / 2.4)
-    return gate * glow
-  })
+  // Luminous laser horizon beam across the bottom edge of the stage
+  const horizonOpacity = useTransform(exit, [0.35, 0.85], [0, 1], { clamp: true })
+  const horizonScaleX = useTransform(exit, [0.3, 0.9], [0.15, 1], { clamp: true })
+  const horizonGlow = useTransform(exit, [0.35, 0.9], [0, 1], { clamp: true })
 
   useMotionValueEvent(reading, 'change', (value) => {
     const next = Math.round(clamp01(value) * lastIndex)
@@ -1141,138 +1130,154 @@ function ArchiveResearch() {
         ))}
 
         <div className="archive-stage">
-         <motion.div className="archive-rail" style={{ x: railX }}>
-          <motion.div className="archive-room" style={{ opacity: roomDim, scale: roomScale }}>
-          <div className="research-atmosphere" aria-hidden="true">
-            <i /><i />
-            <motion.span className="research-lamp" style={{ backgroundColor: accent }} />
-          </div>
-
-          <SceneBoundary label="ResearchArchive">
-            <Suspense fallback={null}>
-              <ResearchArchive progress={reading} papers={researchPapers} accent={accent} pdf={pdf} />
-            </Suspense>
-          </SceneBoundary>
-
-          <div className="archive-head">
-            <div className="section-tag"><span>03</span> / WRITTEN INQUIRY</div>
-            <h2>THE READING <i>ROOM.</i></h2>
-          </div>
-
-          <div className="archive-upload">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/pdf,.pdf"
-              onChange={handleUpload}
-              hidden
-            />
-            <button
-              type="button"
-              className="archive-upload-btn"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={pdfStatus === 'loading'}
-            >
-              <Plus size={14} />
-              {pdfStatus === 'loading' ? 'RENDERING…' : isPdf ? 'REPLACE PDF' : 'UPLOAD A PDF'}
-            </button>
-            {isPdf && (
-              <button type="button" className="archive-upload-reset" onClick={resetToSamples}>
-                RESET
-              </button>
-            )}
-            {isPdf && <span className="archive-upload-name" title={pdf!.name}>{pdf!.name}.pdf</span>}
-            {pdfStatus === 'error' && <span className="archive-upload-error">Couldn't read that PDF.</span>}
-          </div>
-
-          <nav className="archive-ledger" aria-label={isPdf ? 'PDF pages' : 'Research papers'}>
-            <span className="archive-ledger-tag">{isPdf ? 'UPLOADED PAGES' : 'SELECTED PAPERS'}</span>
-            {Array.from({ length: slideCount }).map((_, index) => (
-              <a
-                key={index}
-                href={`#research-entry-${index}`}
-                className={`archive-ledger-row${activeIndex === index ? ' is-active' : ''}`}
-                aria-current={activeIndex === index ? 'true' : undefined}
-                style={{ '--row-accent': accentAt(index) } as CSSProperties}
-              >
-                <span>{String(index + 1).padStart(2, '0')}</span>
-                <strong>{isPdf ? `Page ${index + 1}` : researchPapers[index].title}</strong>
-              </a>
-            ))}
-          </nav>
-
-          <div className="archive-meter" aria-hidden="true"><motion.i style={{ scaleX: meterScale }} /></div>
-
-          <div className="archive-reader" style={{ '--paper-accent': accentAt(activeIndex) } as CSSProperties}>
-            <AnimatePresence mode="wait">
-              {isPdf ? (
-                <motion.div
-                  key={`pdf-${activeIndex}`}
-                  className="archive-reader-inner"
-                  initial={{ opacity: 0, y: 22 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -16 }}
-                  transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <div className="archive-reader-meta">
-                    <span>UPLOAD</span>
-                    <span>PDF</span>
-                    <span>PAGE {activeIndex + 1} / {slideCount}</span>
-                  </div>
-                  <h3 className="archive-reader-title">{pdf!.name}</h3>
-                  <p className="archive-reader-sub">Your document, cast onto glass. Scroll to move through the pages.</p>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key={activePaper.id}
-                  className="archive-reader-inner"
-                  initial={{ opacity: 0, y: 22 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -16 }}
-                  transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <div className="archive-reader-meta">
-                    <span>{activePaper.id}</span>
-                    <span>{activePaper.field}</span>
-                    <span>{activePaper.status} / {activePaper.year}</span>
-                  </div>
-                  <h3 className="archive-reader-title">{activePaper.title}</h3>
-                  <p className="archive-reader-sub">{activePaper.subtitle}</p>
-                  <div className="archive-reader-body">
-                    <p><span className="archive-dropcap">{activePaper.abstract.charAt(0)}</span>{activePaper.abstract.slice(1)}</p>
-                  </div>
-                  <ul className="archive-reader-keywords">
-                    {activePaper.keywords.map((keyword) => <li key={keyword}>{keyword}</li>)}
-                  </ul>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            <div className="archive-reader-nav">
-              <a href={`#research-entry-${Math.max(0, activeIndex - 1)}`} aria-label="Previous" className={activeIndex === 0 ? 'is-disabled' : ''}><ChevronLeft size={16} /></a>
-              <span>{String(activeIndex + 1).padStart(2, '0')} / {String(slideCount).padStart(2, '0')}</span>
-              <a href={`#research-entry-${Math.min(lastIndex, activeIndex + 1)}`} aria-label="Next" className={activeIndex === lastIndex ? 'is-disabled' : ''}><ChevronRight size={16} /></a>
+          <motion.div
+            className="archive-room"
+            style={{
+              scale: prefersReduced ? 1 : stageScale,
+              filter: stageFilter,
+            }}
+          >
+            <div className="research-atmosphere" aria-hidden="true">
+              <i /><i />
+              <motion.span className="research-lamp" style={{ backgroundColor: accent }} />
             </div>
-          </div>
 
-          <div className="archive-scrollcue" aria-hidden="true"><span>SCROLL TO TURN THE PAGES</span></div>
+            <SceneBoundary label="ResearchArchive">
+              <Suspense fallback={null}>
+                <ResearchArchive progress={reading} exit={exit} papers={researchPapers} accent={accent} pdf={pdf} />
+              </Suspense>
+            </SceneBoundary>
+
+            <motion.div
+              className="archive-head"
+              style={{ opacity: domOpacity, y: headY }}
+            >
+              <div className="section-tag"><span>03</span> / WRITTEN INQUIRY</div>
+              <h2>THE READING <i>ROOM.</i></h2>
+            </motion.div>
+
+            <motion.div
+              className="archive-upload"
+              style={{ opacity: domOpacity, y: headY }}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                onChange={handleUpload}
+                hidden
+              />
+              <button
+                type="button"
+                className="archive-upload-btn"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={pdfStatus === 'loading'}
+              >
+                <Plus size={14} />
+                {pdfStatus === 'loading' ? 'RENDERING…' : isPdf ? 'REPLACE PDF' : 'UPLOAD A PDF'}
+              </button>
+              {isPdf && (
+                <button type="button" className="archive-upload-reset" onClick={resetToSamples}>
+                  RESET
+                </button>
+              )}
+              {isPdf && <span className="archive-upload-name" title={pdf!.name}>{pdf!.name}.pdf</span>}
+              {pdfStatus === 'error' && <span className="archive-upload-error">Couldn't read that PDF.</span>}
+            </motion.div>
+
+            <motion.nav
+              className="archive-ledger"
+              aria-label={isPdf ? 'PDF pages' : 'Research papers'}
+              style={{ opacity: domOpacity, x: ledgerX }}
+            >
+              <span className="archive-ledger-tag">{isPdf ? 'UPLOADED PAGES' : 'SELECTED PAPERS'}</span>
+              {Array.from({ length: slideCount }).map((_, index) => (
+                <a
+                  key={index}
+                  href={`#research-entry-${index}`}
+                  className={`archive-ledger-row${activeIndex === index ? ' is-active' : ''}`}
+                  aria-current={activeIndex === index ? 'true' : undefined}
+                  style={{ '--row-accent': accentAt(index) } as CSSProperties}
+                >
+                  <span>{String(index + 1).padStart(2, '0')}</span>
+                  <strong>{isPdf ? `Page ${index + 1}` : researchPapers[index].title}</strong>
+                </a>
+              ))}
+            </motion.nav>
+
+            <div className="archive-meter" aria-hidden="true"><motion.i style={{ scaleX: meterScale }} /></div>
+
+            <motion.div
+              className="archive-reader"
+              style={{ ['--paper-accent' as any]: accentAt(activeIndex), opacity: domOpacity, y: readerY }}
+            >
+              <AnimatePresence mode="wait">
+                {isPdf ? (
+                  <motion.div
+                    key={`pdf-${activeIndex}`}
+                    className="archive-reader-inner"
+                    initial={{ opacity: 0, y: 22 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -16 }}
+                    transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <div className="archive-reader-meta">
+                      <span>UPLOAD</span>
+                      <span>PDF</span>
+                      <span>PAGE {activeIndex + 1} / {slideCount}</span>
+                    </div>
+                    <h3 className="archive-reader-title">{pdf!.name}</h3>
+                    <p className="archive-reader-sub">Your document, cast onto glass. Scroll to move through the pages.</p>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key={activePaper.id}
+                    className="archive-reader-inner"
+                    initial={{ opacity: 0, y: 22 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -16 }}
+                    transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <div className="archive-reader-meta">
+                      <span>{activePaper.id}</span>
+                      <span>{activePaper.field}</span>
+                      <span>{activePaper.status} / {activePaper.year}</span>
+                    </div>
+                    <h3 className="archive-reader-title">{activePaper.title}</h3>
+                    <p className="archive-reader-sub">{activePaper.subtitle}</p>
+                    <div className="archive-reader-body">
+                      <p><span className="archive-dropcap">{activePaper.abstract.charAt(0)}</span>{activePaper.abstract.slice(1)}</p>
+                    </div>
+                    <ul className="archive-reader-keywords">
+                      {activePaper.keywords.map((keyword) => <li key={keyword}>{keyword}</li>)}
+                    </ul>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <div className="archive-reader-nav">
+                <a href={`#research-entry-${Math.max(0, activeIndex - 1)}`} aria-label="Previous" className={activeIndex === 0 ? 'is-disabled' : ''}><ChevronLeft size={16} /></a>
+                <span>{String(activeIndex + 1).padStart(2, '0')} / {String(slideCount).padStart(2, '0')}</span>
+                <a href={`#research-entry-${Math.min(lastIndex, activeIndex + 1)}`} aria-label="Next" className={activeIndex === lastIndex ? 'is-disabled' : ''}><ChevronRight size={16} /></a>
+              </div>
+            </motion.div>
+
+            <motion.div className="archive-scrollcue" aria-hidden="true" style={{ opacity: domOpacity }}>
+              <span>SCROLL TO TURN THE PAGES</span>
+            </motion.div>
           </motion.div>
 
-          {/* Panel 1 — the binding, i.e. the transition joint. Not a titled card
-              but the book's spine: as the room is dragged left this is pulled in
-              from the right and lands centre. Connective glue (warm archive →
-              steel of what follows); only once mounted does vertical scroll
-              resume. Its ground matches section 04 so the hand-off is seamless. */}
-          <div className="archive-next" aria-hidden="true">
-            <motion.div className="archive-joint" style={{ y: jointRise, opacity: jointFade }}>
-              <span className="archive-joint-stitch" />
-              <span className="archive-joint-tick">03</span>
-              <span className="archive-joint-tick archive-joint-tick--end">04</span>
-            </motion.div>
-          </div>
-
-          {/* The luminous seam that sweeps on the panel boundary as the rail moves */}
-          <motion.span className="archive-seam" style={{ opacity: seamOpacity }} aria-hidden="true" />
-         </motion.div>
+          {/* Golden laser horizon line bridging Section 03 and Section 04 */}
+          <motion.div
+            className="archive-horizon-beam"
+            style={{
+              opacity: horizonOpacity,
+              scaleX: horizonScaleX,
+            }}
+            aria-hidden="true"
+          >
+            <span className="horizon-line" />
+            <motion.span className="horizon-flare" style={{ opacity: horizonGlow }} />
+          </motion.div>
         </div>
       </div>
     </section>
@@ -1281,7 +1286,11 @@ function ArchiveResearch() {
 
 function PrinciplesSection() {
   return (
-    <section className="principles-section">
+    <section className="principles-section" id="principles">
+      <div className="principles-horizon-rim" aria-hidden="true">
+        <span className="horizon-line" />
+        <span className="horizon-flare" />
+      </div>
       <div className="principles-sticky">
         <div className="section-tag"><span>04</span> / PRINCIPLES</div>
         <h2>THE RULES<br />BEHIND THE<br /><i>WORK.</i></h2>
@@ -1292,10 +1301,10 @@ function PrinciplesSection() {
           <motion.article
             className={`principle-card accent-${principle.accent}`}
             key={principle.number}
-            initial={{ rotate: index % 2 === 0 ? -2 : 2, y: 80 }}
+            initial={{ rotate: index % 2 === 0 ? -2 : 2, y: 70 }}
             whileInView={{ rotate: 0, y: 0 }}
             viewport={{ once: true, margin: '-8%' }}
-            transition={{ duration: 0.8 }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           >
             <div className="principle-top"><span>{principle.number} / 04</span><Asterisk /></div>
             <h3>{principle.title.split('\n').map((line) => <span key={line}>{line}</span>)}</h3>

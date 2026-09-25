@@ -621,19 +621,18 @@ footer p { margin: 0; font: 500 9px/1.6 DM Mono; letter-spacing: .08em; }
    binding (the transition joint). The exit phase pans the rail one viewport left,
    so the whole reading-room screen — WebGL included — is dragged off to the left
    while the binding is pulled in from the right. */
-.archive-rail { position: absolute; inset: 0; z-index: 1; display: flex; width: 200vw; height: 100%; will-change: transform; }
-.archive-room { position: relative; flex: 0 0 100vw; height: 100%; transform-origin: 42% 50%; will-change: transform, opacity; }
+.archive-room { position: relative; width: 100%; height: 100%; transform-origin: 50% 50%; will-change: transform, filter; }
 .archive-room .research-atmosphere { z-index: 0; }
 .archive-canvas { position: absolute; inset: 0; z-index: 1; }
 .archive-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
 
 /* Top-left title plate */
-.archive-head { position: absolute; z-index: 3; left: clamp(20px,3vw,60px); top: clamp(84px,12vh,130px); pointer-events: none; }
+.archive-head { position: absolute; z-index: 3; left: clamp(20px,3vw,60px); top: clamp(84px,12vh,130px); pointer-events: none; will-change: transform, opacity; }
 .archive-head h2 { margin: 14px 0 0; font-family: Instrument Serif,serif; font-size: clamp(46px,7vw,104px); font-weight: 400; line-height: .82; letter-spacing: -.05em; text-shadow: 0 12px 40px rgba(0,0,0,.55); }
 .archive-head h2 i { color: #c7a367; }
 
 /* Upload control — cast your own PDF onto the glass */
-.archive-upload { position: absolute; z-index: 4; left: clamp(20px,3vw,60px); top: clamp(210px,34vh,340px); display: flex; flex-wrap: wrap; align-items: center; gap: 10px; max-width: min(88vw,420px); }
+.archive-upload { position: absolute; z-index: 4; left: clamp(20px,3vw,60px); top: clamp(210px,34vh,340px); display: flex; flex-wrap: wrap; align-items: center; gap: 10px; max-width: min(88vw,420px); will-change: transform, opacity; }
 .archive-upload-btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 15px; background: rgba(20,15,9,.66); border: 1px solid rgba(199,163,103,.4); border-radius: 30px; color: #f1e4c8; font: 500 8px DM Mono,monospace; letter-spacing: .16em; cursor: pointer; backdrop-filter: blur(8px); transition: background .3s,border-color .3s,color .3s,transform .3s cubic-bezier(.16,1,.3,1); }
 .archive-upload-btn:hover:not(:disabled) { background: #c7a367; border-color: #c7a367; color: #1a120a; transform: translateY(-1px); }
 .archive-upload-btn:disabled { opacity: .6; cursor: progress; }
@@ -643,7 +642,7 @@ footer p { margin: 0; font: 500 9px/1.6 DM Mono; letter-spacing: .08em; }
 .archive-upload-error { color: #ff8f8f; font: 500 8px DM Mono,monospace; letter-spacing: .12em; }
 
 /* Right-hand index rail */
-.archive-ledger { position: absolute; z-index: 3; right: clamp(20px,3vw,56px); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 2px; width: clamp(220px,22vw,290px); padding-left: 20px; border-left: 1px solid rgba(199,163,103,.24); }
+.archive-ledger { position: absolute; z-index: 3; right: clamp(20px,3vw,56px); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 2px; width: clamp(220px,22vw,290px); padding-left: 20px; border-left: 1px solid rgba(199,163,103,.24); will-change: transform, opacity; }
 .archive-ledger-tag { margin-bottom: 12px; color: #8d806e; font: 500 8px DM Mono,monospace; letter-spacing: .2em; }
 .archive-ledger-row { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 12px; padding: 9px 0; color: #7d7060; text-decoration: none; opacity: .5; transition: opacity .4s,color .4s,transform .4s cubic-bezier(.16,1,.3,1); }
 .archive-ledger-row span { font: 500 8px DM Mono,monospace; color: #8a7355; }
@@ -658,7 +657,7 @@ footer p { margin: 0; font: 500 9px/1.6 DM Mono; letter-spacing: .08em; }
 
 /* Bottom reading slab — crisp typography over the softened 3D title.
    Kept narrow + short so it frames the glass corridor instead of covering it. */
-.archive-reader { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; padding: clamp(18px,3vh,36px) clamp(20px,3vw,60px) clamp(22px,3.5vh,40px); display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 16px clamp(24px,4vw,60px); background: linear-gradient(transparent,rgba(12,8,5,.55) 40%,rgba(12,8,5,.9)); }
+.archive-reader { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; padding: clamp(18px,3vh,36px) clamp(20px,3vw,60px) clamp(22px,3.5vh,40px); display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 16px clamp(24px,4vw,60px); background: linear-gradient(transparent,rgba(12,8,5,.55) 40%,rgba(12,8,5,.9)); will-change: transform, opacity; }
 .archive-reader-inner { min-width: 0; max-width: 440px; }
 .archive-reader-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; color: #9a8a70; font: 500 8px DM Mono,monospace; letter-spacing: .14em; }
 .archive-reader-meta span:nth-child(2) { color: var(--paper-accent); }
@@ -674,37 +673,41 @@ footer p { margin: 0; font: 500 9px/1.6 DM Mono; letter-spacing: .08em; }
 .archive-reader-nav a:hover { background: var(--paper-accent); border-color: var(--paper-accent); color: #1a120a; }
 .archive-reader-nav a.is-disabled { opacity: .3; pointer-events: none; }
 
-.archive-scrollcue { position: absolute; z-index: 3; left: 50%; top: clamp(24px,4vh,40px); transform: translateX(-50%); color: #8d806e; font: 500 7px DM Mono,monospace; letter-spacing: .24em; opacity: .7; animation: cuepulse 3s ease-in-out infinite; }
+.archive-scrollcue { position: absolute; z-index: 3; left: 50%; top: clamp(24px,4vh,40px); transform: translateX(-50%); color: #8d806e; font: 500 7px DM Mono,monospace; letter-spacing: .24em; opacity: .7; animation: cuepulse 3s ease-in-out infinite; will-change: opacity; }
 @keyframes cuepulse { 0%,100% { opacity: .3; } 50% { opacity: .8; } }
 
-/* ── 03 → 04 handoff: the binding ────────────────────────────────────────
-   Panel 1 of the reading-room rail. Dark ground matching section 04 so the
-   vertical hand-off after the pan is seamless. Centred sits the binding: the
-   book's stitched spine standing on end, warm (03) bleeding to steel (04). It's
-   connective glue, not a titled card — it reads as the join between chapters. */
-.archive-next { position: relative; flex: 0 0 100vw; height: 100%; display: grid; place-items: center; z-index: 1;
-  background: radial-gradient(120% 90% at 32% 42%, rgba(231,182,92,.06), transparent 55%), #050505; }
-.archive-joint { position: relative; width: clamp(64px, 7vw, 108px); height: min(60vh, 540px); will-change: transform, opacity; border-radius: 9px;
-  background: linear-gradient(180deg, rgba(231,182,92,.2), rgba(24,19,12,.5) 46%, rgba(143,178,207,.2));
-  border: 1px solid rgba(199,163,103,.26);
-  box-shadow: 0 44px 130px rgba(0,0,0,.62), inset 0 0 42px rgba(255,240,214,.06);
-  backdrop-filter: blur(6px); }
-.archive-joint::before { content: ''; position: absolute; left: 50%; top: 8%; bottom: 8%; width: 2px; transform: translateX(-50%);
-  background: linear-gradient(180deg, transparent, var(--acid) 20%, var(--cyan) 80%, transparent); box-shadow: 0 0 22px rgba(231,182,92,.5); }
-.archive-joint-stitch { position: absolute; left: 50%; top: 13%; bottom: 13%; width: 1px; transform: translateX(-50%);
-  background-image: repeating-linear-gradient(180deg, rgba(242,241,235,.42) 0 5px, transparent 5px 19px); opacity: .55; }
-.archive-joint-tick { position: absolute; left: 50%; transform: translateX(-50%); font: 500 8px DM Mono, monospace; letter-spacing: .24em; color: var(--acid); top: -26px; }
-.archive-joint-tick--end { top: auto; bottom: -26px; color: var(--cyan); }
+/* ── 03 → 04 Masterwork Continuum: Luminous Laser Horizon ──────────────── */
+.archive-horizon-beam {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
 
-/* The luminous seam that sweeps on the panel boundary as the rail moves. A soft
-   vertical light-bleed + a hard filament; opacity is gated + rides scroll speed. */
-.archive-seam { position: absolute; top: -10%; left: 100vw; width: clamp(160px, 22vw, 340px); height: 120%; transform: translateX(-50%); z-index: 2; pointer-events: none; will-change: opacity;
-  background:
-    radial-gradient(60% 46% at 50% 50%, rgba(231,182,92,.22), transparent 72%),
-    linear-gradient(90deg, transparent, rgba(143,178,207,.14) 46%, transparent);
-  mask-image: linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent); }
-.archive-seam::after { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; transform: translateX(-50%);
-  background: linear-gradient(to bottom, transparent, var(--acid) 22%, var(--cyan) 78%, transparent); box-shadow: 0 0 22px rgba(231,182,92,.6); }
+.horizon-line {
+  position: absolute;
+  inset: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(231, 182, 92, .35) 15%, rgba(231, 182, 92, .95) 50%, rgba(109, 247, 255, .75) 85%, transparent 100%);
+  box-shadow: 0 0 16px rgba(231, 182, 92, .8), 0 0 36px rgba(231, 182, 92, .3);
+}
+
+.horizon-flare {
+  position: absolute;
+  top: -24px;
+  width: clamp(240px, 45vw, 680px);
+  height: 48px;
+  background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(231, 182, 92, .24), rgba(109, 247, 255, .08) 50%, transparent 75%);
+  pointer-events: none;
+}
 
 .experience-section { padding: 160px 3vw; background: var(--paper); color: var(--ink); }
 .experience-head { display: grid; grid-template-columns: .35fr 1fr; align-items: start; margin-bottom: 120px; }
@@ -719,7 +722,29 @@ footer p { margin: 0; font: 500 9px/1.6 DM Mono; letter-spacing: .08em; }
 .experience-clients { grid-column: 4; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 34px; }
 .experience-clients span { padding: 4px 7px; border: 1px solid #aaa; border-radius: 30px; font: 500 7px DM Mono; }
 
-.principles-section { display: grid; grid-template-columns: .7fr 1.3fr; padding: 150px 3vw; gap: 8vw; }
+.principles-section {
+  position: relative;
+  z-index: 5;
+  background: #050505;
+  display: grid;
+  grid-template-columns: .7fr 1.3fr;
+  padding: 160px 3vw 150px;
+  gap: 8vw;
+}
+
+.principles-horizon-rim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
 .principles-sticky { position: sticky; top: 50px; height: max-content; }
 .principles-sticky h2 { margin: 70px 0 40px; font-size: clamp(48px, 6vw, 96px); line-height: .82; letter-spacing: -.075em; }
 .principles-sticky h2 i { color: var(--acid); font-family: Instrument Serif, serif; font-weight: 400; }

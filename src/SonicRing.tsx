@@ -1,4 +1,4 @@
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, Lightformer, Preload } from '@react-three/drei'
 import { Suspense, useMemo, useRef } from 'react'
 import type { Ref } from 'react'
@@ -30,11 +30,10 @@ const SPIN_TURNS = 3 // full turns completed by the time it stops face-on
 const IDLE_TURNS = 0.5 // gentle extra idle rotation at the very start, fades out
 
 // World-space spot where the ring WAITS while the fingertips close in. This is
-// the clasp point — tune it to sit exactly between the two index fingers. The
-// hands are shifted left in App.tsx (HAND_SHIFT), so this is negative (left).
-// The ring re-centres to origin by STOP so the dive + warp stay centred.
-const RING_WAIT_X = -0.34
-const RING_WAIT_Y = 0.02
+// the clasp point sitting right between the two touching index fingers, displaced
+// slightly top-right to seat cleanly in the finger grip. Ring re-centres to origin by STOP.
+const RING_WAIT_X = 0.365
+const RING_WAIT_Y = 0.27
 
 const flash = cubicBezier(0.7, 0, 0.3, 1)
 const ease = cubicBezier(0.4, 0, 0.2, 1)
@@ -66,6 +65,8 @@ function Ring({ progress }: { progress: MotionValue<number> }) {
   const group = useRef<THREE.Group>(null)
   const spinner = useRef<THREE.Group>(null)
   const mat = useRef<THREE.MeshStandardMaterial>(null)
+  const wrapRef = useRef<Element | null>(null)
+  const { camera, size } = useThree()
 
   // Grow small -> rest, then blow up as we dive into the hole.
   const scale = useTransform(
@@ -74,11 +75,6 @@ function Ring({ progress }: { progress: MotionValue<number> }) {
     [BASE, REST, REST * 11],
     { ease },
   )
-  // Waits at the clasp point (shifted left, matching the hands) then drifts to
-  // dead centre by the time it stops — so the dive & warp stay centred.
-  // DIALS: RING_WAIT_X/RING_WAIT_Y = where the ring sits between the fingertips.
-  const posX = useTransform(progress, [TOUCH, STOP], [RING_WAIT_X, 0], { clamp: true, ease })
-  const posY = useTransform(progress, [TOUCH, STOP], [RING_WAIT_Y, 0], { clamp: true, ease })
   // Dive toward the camera during the zoom-in.
   const posZ = useTransform(progress, [STOP, STOP + 0.2], [0, 5.2], { clamp: true, ease: flash })
   // Fade the gold band out as the hole engulfs the view.
@@ -103,9 +99,45 @@ function Ring({ progress }: { progress: MotionValue<number> }) {
       spinner.current.rotation.x = THREE.MathUtils.lerp(0.34, 0.06, settle)
     }
 
+    if (!wrapRef.current && typeof document !== 'undefined') {
+      wrapRef.current = document.querySelector('.hero-hands-wrap')
+    }
+
+    let claspX = RING_WAIT_X
+    let claspY = RING_WAIT_Y
+
+    if (wrapRef.current) {
+      const rect = wrapRef.current.getBoundingClientRect()
+      // Clasp midpoint between the two index fingers at touch (0.46)
+      // Displaced slightly top-right to nestle naturally between the fingertips:
+      // Width: 43.8% -> 45.2% (shifted further right)
+      // Height: 44.102% -> 42.6% (subtly top / up)
+      const screenX = rect.left + rect.width * 0.452
+      const screenY = rect.top + rect.height * 0.426
+
+      const ndcX = (screenX / size.width) * 2 - 1
+      const ndcY = -(screenY / size.height) * 2 + 1
+
+      const persCam = camera as THREE.PerspectiveCamera
+      const vFovRad = (persCam.fov * Math.PI) / 180
+      const halfHeightWorld = Math.tan(vFovRad / 2) * camera.position.z
+      const halfWidthWorld = halfHeightWorld * (size.width / size.height)
+
+      claspX = ndcX * halfWidthWorld
+      claspY = ndcY * halfHeightWorld
+    }
+
     if (group.current) {
       group.current.scale.setScalar(scale.get())
-      group.current.position.set(posX.get(), posY.get(), posZ.get())
+
+      // Waits at the clasp point (centered between fingertips) then smoothly
+      // drifts to dead centre (0, 0) by STOP so the dive & warp stay centered.
+      const t = THREE.MathUtils.clamp((p - TOUCH) / (STOP - TOUCH), 0, 1)
+      const driftEase = ease(t)
+      const curX = THREE.MathUtils.lerp(claspX, 0, driftEase)
+      const curY = THREE.MathUtils.lerp(claspY, 0, driftEase)
+
+      group.current.position.set(curX, curY, posZ.get())
     }
     if (mat.current) {
       mat.current.opacity = fade.get()
@@ -209,7 +241,7 @@ function Warp({ progress }: { progress: MotionValue<number> }) {
         const x = seed[i * 3]
         const y = seed[i * 3 + 1]
         // Wrap through the tunnel so the stream is endless as we scroll/drift.
-        let z = ((seed[i * 3 + 2] + travel) % TUNNEL) - TUNNEL + 6
+        const z = ((seed[i * 3 + 2] + travel) % TUNNEL) - TUNNEL + 6
         const h = i * 6
         arr[h] = x
         arr[h + 1] = y

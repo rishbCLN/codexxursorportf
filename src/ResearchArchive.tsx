@@ -238,11 +238,37 @@ function Backdrop() {
 
 // --- Slab ----------------------------------------------------------------
 
-function GlassSlab({ slide, index, focus }: { slide: Slide; index: number; focus: MotionValue<number> }) {
+function CameraRig({ exit }: { exit?: MotionValue<number> }) {
+  useFrame(({ camera }) => {
+    const e = exit ? exit.get() : 0
+    // Camera dives smoothly forward toward and into the slab
+    const targetZ = 9 - e * 5.6
+    const targetY = 0.3 - e * 0.2
+    camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetZ, 0.08)
+    camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetY, 0.08)
+  })
+  return null
+}
+
+function GlassSlab({
+  slide,
+  index,
+  focus,
+  exit,
+  isLast,
+}: {
+  slide: Slide
+  index: number
+  focus: MotionValue<number>
+  exit?: MotionValue<number>
+  isLast: boolean
+}) {
   const group = useRef<THREE.Group>(null)
   const paperMat = useRef<THREE.MeshStandardMaterial>(null)
   const spine = useRef<THREE.MeshStandardMaterial>(null)
   const halo = useRef<THREE.Sprite>(null)
+  // Ref for MeshTransmissionMaterial to animate physical optical uniforms
+  const transmissionMat = useRef<any>(null)
   const seed = useMemo(() => Math.random() * 10, [])
   const bodyColor = useMemo(() => new THREE.Color(slide.accent).lerp(WHITE, 0.7), [slide.accent])
   const haloTex = useMemo(() => getHaloTexture(), [])
@@ -256,6 +282,7 @@ function GlassSlab({ slide, index, focus }: { slide: Slide; index: number; focus
     const ad = Math.abs(d)
     const t = state.clock.elapsedTime
     const g = group.current
+    const e = exit ? exit.get() : 0
 
     if (g) {
       let x = d * 1.15
@@ -271,27 +298,60 @@ function GlassSlab({ slide, index, focus }: { slide: Slide; index: number; focus
         ry += -p * 0.5
       }
 
-      g.position.set(x, y, z)
-      g.rotation.set(
-        Math.sin(t * 0.4 + seed) * 0.03,
-        ry,
-        d * 0.02 + Math.sin(t * 0.3 + seed) * 0.01,
-      )
-      g.scale.setScalar(Math.max(0.6, 1 - ad * 0.06))
+      if (isLast && e > 0) {
+        // As exit begins, smoothly align the last slab directly in front of the lens
+        x = THREE.MathUtils.lerp(x, 0, e)
+        y = THREE.MathUtils.lerp(y, 0, e)
+        ry = THREE.MathUtils.lerp(ry, 0, e)
+        const s = THREE.MathUtils.lerp(1, 1.18, e)
+        g.scale.set(s, s, s)
+        g.position.set(x, y, z)
+        g.rotation.set(0, ry, 0)
+      } else {
+        if (e > 0 && !isLast) {
+          // Preceding slabs gracefully sink and vanish during exit
+          y -= e * 3.5
+          z -= e * 4.0
+        }
+        g.position.set(x, y, z)
+        g.rotation.set(
+          Math.sin(t * 0.4 + seed) * 0.03,
+          ry,
+          d * 0.02 + Math.sin(t * 0.3 + seed) * 0.01,
+        )
+        g.scale.setScalar(Math.max(0.6, 1 - ad * 0.06))
+      }
+    }
+
+    if (isLast && transmissionMat.current && e > 0) {
+      // Dynamic optical dispersion & chromatic aberration flare!
+      transmissionMat.current.chromaticAberration = THREE.MathUtils.lerp(0.05, 0.65, e)
+      transmissionMat.current.distortion = THREE.MathUtils.lerp(0.15, 0.75, e)
+      transmissionMat.current.distortionScale = THREE.MathUtils.lerp(0.3, 0.8, e)
+      transmissionMat.current.thickness = THREE.MathUtils.lerp(1.4, 3.2, e)
     }
 
     if (paperMat.current) {
+      if (isLast && e > 0) {
+        // Paper text gracefully diffuses into pure glass glow
+        paperMat.current.opacity = Math.max(0, 1 - e * 1.8)
+        paperMat.current.transparent = true
+      }
       paperMat.current.emissiveIntensity = THREE.MathUtils.clamp(0.92 - ad * 0.32, 0.28, 0.92)
     }
 
     if (spine.current) {
-      spine.current.emissiveIntensity = Math.max(0.2, 2.6 - ad * 1.9)
+      if (isLast && e > 0) {
+        spine.current.emissiveIntensity = Math.min(6, 2.6 + e * 4.5)
+      } else {
+        spine.current.emissiveIntensity = Math.max(0.2, 2.6 - ad * 1.9)
+      }
     }
 
     if (halo.current) {
       const material = halo.current.material as THREE.SpriteMaterial
-      material.opacity = Math.max(0, 0.5 - ad * 0.46)
-      const scale = Math.max(2.4, 6.4 - ad * 1.4)
+      material.opacity = Math.max(0, (isLast && e > 0 ? 0.5 + e * 0.5 : 0.5) - ad * 0.46)
+      const scale = Math.max(2.4, (isLast && e > 0 ? 6.4 + e * 6.0 : 6.4) - ad * 1.4)
       halo.current.scale.set(scale, scale, scale)
     }
   })
@@ -310,9 +370,10 @@ function GlassSlab({ slide, index, focus }: { slide: Slide; index: number; focus
         />
       </sprite>
 
-      {/* Refractive glass body / frame */}
+      {/* Refractive glass body / frame with physical transmission material */}
       <RoundedBox args={[slabW, slabH, SLAB_D]} radius={0.09} smoothness={4}>
         <MeshTransmissionMaterial
+          ref={transmissionMat}
           transmissionSampler
           backside={false}
           transmission={1}
@@ -363,17 +424,33 @@ function GlassSlab({ slide, index, focus }: { slide: Slide; index: number; focus
   )
 }
 
-function AccentLight({ accent }: { accent: MotionValue<string> }) {
+function AccentLight({ accent, exit }: { accent: MotionValue<string>; exit?: MotionValue<number> }) {
   const light = useRef<THREE.PointLight>(null)
   useFrame(() => {
-    if (light.current) light.current.color.set(accent.get())
+    if (light.current) {
+      light.current.color.set(accent.get())
+      const e = exit ? exit.get() : 0
+      light.current.intensity = 40 + e * 160
+      light.current.position.set(0, 1.6 - e * 0.8, 4.5 - e * 2.5)
+    }
   })
-  return <pointLight ref={light} position={[0, 1.6, 4.5]} intensity={40} distance={22} decay={2} />
+  return <pointLight ref={light} position={[0, 1.6, 4.5]} intensity={40} distance={28} decay={2} />
 }
 
-function Scene({ slides, progress, accent }: { slides: Slide[]; progress: MotionValue<number>; accent: MotionValue<string> }) {
+function Scene({
+  slides,
+  progress,
+  exit,
+  accent,
+}: {
+  slides: Slide[]
+  progress: MotionValue<number>
+  exit?: MotionValue<number>
+  accent: MotionValue<string>
+}) {
   const smooth = useSpring(progress, { stiffness: 70, damping: 26, mass: 0.4, restDelta: 0.0004 })
   const focus = useTransform(smooth, (p) => p * Math.max(1, slides.length - 1))
+  const lastIndex = Math.max(0, slides.length - 1)
 
   return (
     <>
@@ -381,11 +458,12 @@ function Scene({ slides, progress, accent }: { slides: Slide[]; progress: Motion
       <fog attach="fog" args={['#161009', 14, 46]} />
 
       <Backdrop />
+      <CameraRig exit={exit} />
 
       <ambientLight intensity={0.5} color="#6a5539" />
       <directionalLight position={[3, 4, 6]} intensity={1.8} color="#ffe9c2" />
       <directionalLight position={[-5, -2, 2]} intensity={0.6} color="#7fa8ff" />
-      <AccentLight accent={accent} />
+      <AccentLight accent={accent} exit={exit} />
 
       <Environment resolution={256} frames={1}>
         <color attach="background" args={['#080706']} />
@@ -397,14 +475,28 @@ function Scene({ slides, progress, accent }: { slides: Slide[]; progress: Motion
       <Sparkles count={60} scale={[16, 11, 10]} size={2.2} speed={0.3} opacity={0.5} color="#e7c98a" noise={1} />
 
       {slides.map((slide, index) => (
-        <GlassSlab key={slide.id} slide={slide} index={index} focus={focus} />
+        <GlassSlab
+          key={slide.id}
+          slide={slide}
+          index={index}
+          focus={focus}
+          exit={exit}
+          isLast={index === lastIndex}
+        />
       ))}
     </>
   )
 }
 
-export default function ResearchArchive({ progress, papers, accent, pdf }: {
+export default function ResearchArchive({
+  progress,
+  exit,
+  papers,
+  accent,
+  pdf,
+}: {
   progress: MotionValue<number>
+  exit?: MotionValue<number>
   papers: ArchivePaper[]
   accent: MotionValue<string>
   pdf?: RenderedPdf | null
@@ -475,7 +567,7 @@ export default function ResearchArchive({ progress, papers, accent, pdf }: {
         gl={{ antialias: true, powerPreference: 'high-performance' }}
       >
         <Suspense fallback={null}>
-          <Scene slides={slides} progress={progress} accent={accent} />
+          <Scene slides={slides} progress={progress} exit={exit} accent={accent} />
         </Suspense>
       </Canvas>
     </div>
