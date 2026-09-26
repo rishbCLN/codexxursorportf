@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, useAnimationFrame, useInView, useMotionValue, useMotionValueEvent, useScroll, useSpring, useTransform, useVelocity } from 'framer-motion'
+import { AnimatePresence, motion, useInView, useMotionValue, useMotionValueEvent, useScroll, useSpring, useTransform, useVelocity } from 'framer-motion'
 import type { MotionValue, Variants } from 'framer-motion'
 import gsap from 'gsap'
 import {
@@ -27,6 +27,7 @@ import Lenis from 'lenis'
 import { whenHeroReady } from './heroReady'
 import { triggerReveal, useRevealed } from './reveal'
 import { useLatchedScene, useLowPower } from './useNearViewport'
+import { useSmoothed } from './useSmoothed'
 import heroHandLeftUrl from './assets/hero-hand-left.png'
 import heroHandRightUrl from './assets/hero-hand-right.png'
 import cloudsUrl from './assets/clouds.png'
@@ -995,7 +996,10 @@ function ArchiveResearch() {
   // the plunge holds a clean frame and the hand-off to Principles is seamless.
   const exitSmoothed = useSmoothed(exitRaw, 90)
   const exit = prefersReduced ? exitRaw : exitSmoothed
-  const meterScale = useSpring(reading, { stiffness: 120, damping: 30, mass: 0.35 })
+  // Monotonic smoothing (NOT a spring) for the archive meter, for the same
+  // reason as the exit value above: a spring on this scroll-linked value
+  // overshoots and snaps back when the swipe reverses direction.
+  const meterScale = useSmoothed(reading, 90)
 
   // DOM elements gracefully dissolve and part ways during exit (0.0 -> 0.35)
   const domOpacity = useTransform(exit, [0, 0.32], [1, 0], { clamp: true })
@@ -1665,29 +1669,6 @@ function Header() {
   )
 }
 
-// Monotonic exponential smoothing for a scroll-driven MotionValue. Unlike a
-// spring, it eases toward the target WITHOUT ever overshooting, so when the
-// scroll stops the value glides to rest instead of springing past and snapping
-// back. That backward correction is exactly the "jerk a few frames back" in the
-// warp — and it's amplified there because a tiny progress overshoot maps to a
-// large jump in corridor travel. tauMs is the feel dial (smaller = snappier).
-function useSmoothed(source: MotionValue<number>, tauMs = 80) {
-  const out = useMotionValue(source.get())
-  useAnimationFrame((_, delta) => {
-    const target = source.get()
-    const cur = out.get()
-    // Snap + stop churning once we're effectively at rest (0.00005 progress is
-    // sub-pixel here), so we don't thrash subscribers every idle frame.
-    if (Math.abs(target - cur) < 0.00005) {
-      if (cur !== target) out.set(target)
-      return
-    }
-    const alpha = 1 - Math.exp(-delta / tauMs)
-    out.set(cur + (target - cur) * alpha)
-  })
-  return out
-}
-
 // Hero intro entrance. These play in lock-step with the loader curtain parting
 // (gated on useRevealed / triggerReveal) rather than on mount — with a longer
 // loader, mount-time delays would finish behind the curtain and the hero would
@@ -2020,7 +2001,11 @@ function ContactSection() {
 
 function App() {
   const { scrollYProgress } = useScroll()
-  const progress = useSpring(scrollYProgress, { stiffness: 100, damping: 25, restDelta: 0.001 })
+  // Monotonic smoothing (NOT a spring) for the global top progress bar. A spring
+  // overshoots and corrects backward the instant a swipe reverses direction,
+  // which read as a small shudder/bounce on mobile; a first-order lag only ever
+  // approaches the scroll target, so reversal glides to rest without a snap-back.
+  const progress = useSmoothed(scrollYProgress, 110)
 
   // The hero is pinned; scroll scrubs the hands together, then we zoom through the ring to black.
   const heroRef = useRef<HTMLElement>(null)

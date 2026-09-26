@@ -2,10 +2,11 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import { useWebGLResilience } from './useWebGLResilience'
 import { Environment, Lightformer, MeshTransmissionMaterial, RoundedBox, Sparkles } from '@react-three/drei'
 import { Suspense, useEffect, useMemo, useRef } from 'react'
-import { useSpring, useTransform } from 'framer-motion'
+import { useTransform } from 'framer-motion'
 import type { MotionValue } from 'framer-motion'
 import * as THREE from 'three'
 import type { RenderedPdf } from './pdfPages'
+import { useSmoothed } from './useSmoothed'
 
 /*
   A real WebGL reading room, built as floating glass monoliths. Each item — a
@@ -454,7 +455,12 @@ function Scene({
   accent: MotionValue<string>
   lowPower?: boolean
 }) {
-  const smooth = useSpring(progress, { stiffness: 70, damping: 26, mass: 0.4, restDelta: 0.0004 })
+  // Monotonic smoothing (NOT a spring). A spring on this scroll-linked focus
+  // value overshoots its target and snaps back the instant a swipe reverses
+  // direction — the small shudder/bounce seen on mobile. This first-order lag
+  // has no velocity term, so it only ever approaches the scroll target and
+  // glides to rest on a stop or reversal. tau 90 matches the exit feel.
+  const smooth = useSmoothed(progress, 90)
   const focus = useTransform(smooth, (p) => p * Math.max(1, slides.length - 1))
   const lastIndex = Math.max(0, slides.length - 1)
 
