@@ -28,6 +28,8 @@ import { whenHeroReady } from './heroReady'
 import { triggerReveal, useRevealed } from './reveal'
 import { useLatchedScene, useLowPower } from './useNearViewport'
 import { useSmoothed } from './useSmoothed'
+import { ScrollDebugOverlay } from './ScrollDebugOverlay'
+import { scrollDebugEnabled } from './scrollDebug'
 import heroHandLeftUrl from './assets/hero-hand-left.png'
 import heroHandRightUrl from './assets/hero-hand-right.png'
 import cloudsUrl from './assets/clouds.png'
@@ -2112,6 +2114,14 @@ function App() {
       smoothWheel: true,
     })
 
+    // TEMP DEBUG (throwaway): expose the Lenis instance so ScrollDebugOverlay can
+    // read isScrolling/velocity/direction/animatedScroll/targetScroll/isTouching.
+    // Gated by the same flag as the overlay; removed on cleanup. Remove with the
+    // overlay once the touch-inertia glitch is diagnosed.
+    if (scrollDebugEnabled()) {
+      ;(window as unknown as { __lenisDebug?: unknown }).__lenisDebug = lenis
+    }
+
     let frame = 0
     const raf = (time: number) => {
       lenis.raf(time)
@@ -2134,6 +2144,9 @@ function App() {
     return () => {
       cancelAnimationFrame(frame)
       document.removeEventListener('click', onAnchorClick)
+      if (scrollDebugEnabled()) {
+        delete (window as unknown as { __lenisDebug?: unknown }).__lenisDebug
+      }
       lenis.destroy()
     }
   }, [])
@@ -2152,6 +2165,7 @@ function App() {
       <Cursor />
       <PointerGlow />
       <ScrollCoordinates />
+      <ScrollDebugOverlay scrollYProgress={scrollYProgress} progress={progress} />
       <motion.div className="progress" style={{ scaleX: progress }} />
       <Header />
       <main id="top">
