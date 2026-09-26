@@ -11,6 +11,7 @@ import {
   Copy,
   Database,
   Github,
+  Linkedin,
   Mail,
   Plus,
   TerminalSquare,
@@ -986,8 +987,14 @@ function ArchiveResearch() {
   const READING_SPAN = 0.72
   const reading = useTransform(scrollYProgress, [0, READING_SPAN], [0, 1], { clamp: true })
   const exitRaw = useTransform(scrollYProgress, [READING_SPAN, 1], [0, 1], { clamp: true })
-  const exitSmooth = useSpring(exitRaw, { stiffness: 85, damping: 28, mass: 0.45, restDelta: 0.0004 })
-  const exit = prefersReduced ? exitRaw : exitSmooth
+  // Monotonic exponential smoothing (NOT a spring). A spring on a scroll-linked
+  // value overshoots and corrects backward whenever the finger/wheel stops
+  // mid-plunge, so the camera dive + horizon beam visibly bounced past their
+  // target and settled back — the transition into 04 read as a jolt. `useSmoothed`
+  // eases toward the scroll target and never crosses it, so stopping anywhere in
+  // the plunge holds a clean frame and the hand-off to Principles is seamless.
+  const exitSmoothed = useSmoothed(exitRaw, 90)
+  const exit = prefersReduced ? exitRaw : exitSmoothed
   const meterScale = useSpring(reading, { stiffness: 120, damping: 30, mass: 0.35 })
 
   // DOM elements gracefully dissolve and part ways during exit (0.0 -> 0.35)
@@ -1725,6 +1732,7 @@ const heroMaskGlow: Variants = {
 
 const CONTACT_NODES: { key: string; label: string; handle: string; href: string; cta: string; Icon: LucideIcon }[] = [
   { key: 'github', label: 'GitHub', handle: 'github.com/rishbCLN', href: 'https://github.com/rishbCLN', cta: 'View GitHub', Icon: Github },
+  { key: 'linkedin', label: 'LinkedIn', handle: 'LinkedIn', href: 'https://linkedin.com', cta: 'View LinkedIn', Icon: Linkedin },
   { key: 'email', label: 'Email', handle: 'rishabh.kumar2024@vitstudent.ac.in', href: 'mailto:rishabh.kumar2024@vitstudent.ac.in', cta: 'Send an email', Icon: Mail },
 ]
 
@@ -1932,7 +1940,7 @@ function ContactSection() {
           animate={inView ? { opacity: 1, y: 0 } : undefined}
           transition={{ duration: 0.8, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
         >
-          Pick a channel. Two ways to reach me directly.
+          Pick a channel. Three ways to reach me directly.
         </motion.p>
 
         <div className="contact-stage" ref={stageRef}>
@@ -1998,6 +2006,7 @@ function ContactSection() {
           <p>CREATIVE DEVELOPER &middot; CSE @ VIT<br />INDIA / WORKING REMOTELY</p>
           <div className="socials">
             <a href="https://github.com/rishbCLN" aria-label="GitHub" target="_blank" rel="noopener noreferrer"><Github /></a>
+            <a href="https://linkedin.com" aria-label="LinkedIn" target="_blank" rel="noopener noreferrer"><Linkedin /></a>
             <a href="mailto:rishabh.kumar2024@vitstudent.ac.in" aria-label="Email"><Mail /></a>
           </div>
           <a href="#top" className="back-top">BACK TO TOP <ArrowUpRight /></a>

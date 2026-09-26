@@ -242,7 +242,10 @@ function Backdrop() {
 function CameraRig({ exit }: { exit?: MotionValue<number> }) {
   useFrame(({ camera }) => {
     const e = exit ? exit.get() : 0
-    // Camera dives smoothly forward toward and into the slab
+    // Camera dives smoothly forward toward and into the slab. `exit` is now a
+    // monotonic-smoothed scroll value (App.tsx) instead of a spring, so it never
+    // overshoots its scroll target and springs back on a mid-plunge stop; the
+    // lerp below is the only easing and it only ever approaches, never crosses.
     const targetZ = 9 - e * 5.6
     const targetY = 0.3 - e * 0.2
     camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetZ, 0.08)

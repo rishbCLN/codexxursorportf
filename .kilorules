@@ -1,0 +1,19 @@
+# Kilo / Cline Agent Rules
+
+## Git Permissions & Tool Execution
+1. **Allowed Git Commands**: You are fully authorized to run all local inspection and development git commands:
+   - git status
+   - git ls-files
+   - git diff
+   - git log
+   - git show
+   - git branch
+   - git checkout
+   - git add
+   - git commit
+
+2. **Strictly Forbidden Git Commands**:
+   - git push is STRICTLY FORBIDDEN under all circumstances. Never attempt to push to remote.
+
+3. **Execution Rule**:
+   - Always run commands individually. Do not chain commands with &&, ;, or | to avoid shell sandbox blocks.

@@ -20,8 +20,14 @@
 }
 
 * { box-sizing: border-box; }
-html { background: var(--ink); overflow-x: clip; }
-body { margin: 0; min-width: 320px; overflow-x: clip; }
+/* overflow-anchor:none — the browser's scroll-anchoring tries to keep content
+   stable when something ABOVE the current position changes size (e.g. a mobile
+   URL bar showing on up-swipe re-flowing the tall svh sections). Its correction
+   fought the native/Lenis scroll and read as a teleport to the top on up-swipe.
+   overscroll-behavior-y:none stops pull-to-refresh / scroll-chaining jerks at
+   the boundaries. Neither changes the scroll model, hero distance or hand timing. */
+html { background: var(--ink); overflow-x: clip; overflow-anchor: none; overscroll-behavior-y: none; }
+body { margin: 0; min-width: 320px; overflow-x: clip; overflow-anchor: none; overscroll-behavior-y: none; }
 main { position: relative; }
 img, svg, canvas { max-width: 100%; }
 input, textarea, select { max-width: 100%; font: inherit; }
