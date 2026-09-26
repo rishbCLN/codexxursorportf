@@ -9,9 +9,9 @@ import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
 import { siGithub, siGmail } from 'simple-icons'
 
 /*
-  THE CONSTELLATION — the contact section as three levitating crystal prisms,
+  THE CONSTELLATION — the contact section as two levitating crystal prisms,
   each refracting the environment and cradling a glowing, extruded 3D brand mark
-  (GitHub / LinkedIn / Gmail). A single `focus` MotionValue (-1 = idle, else the
+  (GitHub / Gmail). A single `focus` MotionValue (-1 = idle, else the
   hovered/focused node index) is driven by the DOM cards in App.tsx and read here
   every frame, so the WebGL stays in perfect lockstep with the crisp DOM CTAs
   layered on top. When a node is focused its prism swells, rides forward, and
