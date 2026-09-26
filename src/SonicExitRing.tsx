@@ -105,7 +105,7 @@ function ExitRing({ progress }: { progress: MotionValue<number> }) {
   )
 }
 
-export default function SonicExitRing({ progress }: { progress: MotionValue<number> }) {
+export default function SonicExitRing({ progress, active = true, lowPower = false }: { progress: MotionValue<number>; active?: boolean; lowPower?: boolean }) {
   // Focus-pull that belongs to the EXIT RING ALONE (its own layer): soft when it
   // first appears, then resolving to fully sharp FAST + EARLY by SHARP (roughly
   // twice as quick as it used to take). It then keeps rushing in already crisp.
@@ -118,7 +118,8 @@ export default function SonicExitRing({ progress }: { progress: MotionValue<numb
       <Canvas
         key={canvasKey}
         onCreated={onCreated}
-        dpr={[1, 1.7]}
+        frameloop={active ? 'always' : 'demand'}
+        dpr={[1, lowPower ? 1.3 : 1.7]}
         camera={{ position: [0, 0, 6], fov: 30 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       >

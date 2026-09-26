@@ -7,30 +7,30 @@ import type { MotionValue } from 'framer-motion'
 import * as THREE from 'three'
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
 import {
-  siBlender,
   siCplusplus,
+  siDart,
   siDocker,
+  siEthereum,
   siFigma,
+  siFlutter,
   siFramer,
   siGit,
-  siGo,
   siGraphql,
   siGreensock,
   siHtml5,
+  siIpfs,
   siJavascript,
   siNextdotjs,
   siNodedotjs,
   siPython,
   siReact,
-  siRust,
   siSass,
+  siSolidity,
   siTailwindcss,
   siThreedotjs,
   siTypescript,
   siVite,
-  siWebassembly,
   siWebgl,
-  siWebgpu,
 } from 'simple-icons'
 import { TOOLKIT_CLUSTERS, TOOLKIT_TOOLS } from './toolkitData'
 
@@ -54,27 +54,27 @@ import { TOOLKIT_CLUSTERS, TOOLKIT_TOOLS } from './toolkitData'
 // Resolve the toolkitData `si` slug -> the real simple-icons record. Kept as an
 // explicit map so tree-shaking only bundles the logos we actually orbit.
 const ICONS: Record<string, { path: string; hex: string }> = {
-  siJavascript,
   siTypescript,
-  siCplusplus,
+  siJavascript,
   siPython,
-  siRust,
-  siGo,
+  siCplusplus,
+  siDart,
+  siSolidity,
   siReact,
   siNextdotjs,
+  siFlutter,
   siTailwindcss,
-  siFigma,
   siHtml5,
-  siSass,
+  siFigma,
   siThreedotjs,
   siWebgl,
-  siWebgpu,
   siGreensock,
   siFramer,
-  siBlender,
-  siNodedotjs,
   siVite,
-  siWebassembly,
+  siSass,
+  siNodedotjs,
+  siEthereum,
+  siIpfs,
   siDocker,
   siGraphql,
   siGit,
@@ -426,7 +426,7 @@ function Scene({
       <directionalLight position={[-6, -2, 2]} intensity={0.7} color="#8fb2ff" />
       <AccentLight accent={accent} />
 
-      <Environment resolution={256} frames={1}>
+      <Environment resolution={coarse ? 128 : 256} frames={1}>
         <color attach="background" args={['#070510']} />
         <Lightformer form="rect" intensity={3} color="#fff0d6" scale={[10, 10, 1]} position={[0, 6, -9]} />
         <Lightformer form="ring" intensity={2.4} color="#9fd0ff" scale={[6, 6, 1]} position={[-9, 1, -3]} />
@@ -449,9 +449,11 @@ function Scene({
 export default function ToolkitCortex({
   accent,
   coarse = false,
+  active = true,
 }: {
   accent: MotionValue<string>
   coarse?: boolean
+  active?: boolean
 }) {
   const { canvasKey, onCreated } = useWebGLResilience()
   return (
@@ -459,9 +461,12 @@ export default function ToolkitCortex({
       <Canvas
         key={canvasKey}
         onCreated={onCreated}
-        dpr={[1, 1.6]}
+        // Idle (demand) while off-screen so the orbiting-logos scene stops
+        // consuming GPU when scrolled away — see ContactConstellation.
+        frameloop={active ? 'always' : 'demand'}
+        dpr={[1, coarse ? 1.2 : 1.6]}
         camera={{ position: [0, 0.5, 8.4], fov: 34 }}
-        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        gl={{ antialias: !coarse, powerPreference: 'high-performance' }}
       >
         <Suspense fallback={null}>
           <Scene accent={accent} coarse={coarse} />

@@ -4,38 +4,28 @@ import gsap from 'gsap'
 import {
   ArrowUpRight,
   Asterisk,
-  AudioLines,
-  Box,
   Braces,
   Check,
   ChevronLeft,
   ChevronRight,
-  Code2,
   Copy,
-  Cpu,
   Database,
   Github,
-  Linkedin,
   Mail,
-  Play,
   Plus,
-  Search,
-  ShoppingBag,
   TerminalSquare,
-  Wind,
   Zap,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import SceneBoundary from './SceneBoundary'
 import type { ChangeEvent, CSSProperties } from 'react'
 import type { RenderedPdf } from './pdfPages'
 import { TOOLKIT_CLUSTERS } from './toolkitData'
 import Lenis from 'lenis'
-import ScrollApple from './ScrollApple'
 import { whenHeroReady } from './heroReady'
 import { triggerReveal, useRevealed } from './reveal'
-import { useNearViewport } from './useNearViewport'
+import { useLatchedScene, useLowPower } from './useNearViewport'
 import heroHandLeftUrl from './assets/hero-hand-left.png'
 import heroHandRightUrl from './assets/hero-hand-right.png'
 import cloudsUrl from './assets/clouds.png'
@@ -52,75 +42,42 @@ const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
 const projects = [
   {
     index: '01',
-    title: 'NEURAL\nWEATHER',
-    type: 'EXPERIMENTAL / AI',
+    title: 'MESH\nALERT',
+    type: 'DISASTER TECH / MOBILE',
     year: '2026',
-    description: 'A living climate interface that transforms atmospheric data into generative spatial systems.',
-    tags: ['NEXT.JS', 'THREE.JS', 'GLSL'],
-    theme: 'weather',
+    description: 'An offline mesh communication app for disaster zones — devices relay messages peer-to-peer with no internet, then sync survivors to a live rescue map the moment any node reconnects.',
+    tags: ['FLUTTER', 'DART', 'MESH'],
+    theme: 'mesh',
     device: 'phone',
-    platform: 'IOS / SPATIAL INTERFACE',
-    result: '2.4M LIVE SESSIONS',
-    image: 'https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?auto=format&fit=crop&w=1200&q=88',
-    imageAlt: 'Dark storm clouds rolling across a luminous mountain atmosphere',
-    imagePosition: '50% 50%',
+    platform: 'ANDROID / OFFLINE MESH',
+    result: 'COMPANION LIVE MAP',
+    repo: 'https://github.com/rishbCLN/mesh_net',
   },
   {
     index: '02',
-    title: 'NOIR\nSYSTEMS',
-    type: 'COMMERCE / PLATFORM',
+    title: 'CIVIC\nLEDGER',
+    type: 'WEB3 / CIVIC TECH',
     year: '2025',
-    description: 'An uncompromising digital flagship and modular commerce engine for an independent fashion house.',
-    tags: ['REACT', 'WEBGL', 'SHOPIFY'],
-    theme: 'noir',
+    description: 'A civic-accountability dApp that records public infrastructure issues as append-only, cryptographically verifiable events — evidence on IPFS, history on-chain, nothing silently edited.',
+    tags: ['REACT', 'SOLIDITY', 'IPFS'],
+    theme: 'civic',
     device: 'laptop',
-    platform: 'WEB / COMMERCE PLATFORM',
-    result: '+38% CONVERSION',
-    image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1600&q=88&sat=-100',
-    imageAlt: 'Monochrome editorial portrait in sculptural fashion',
-    imagePosition: '50% 34%',
+    platform: 'WEB / ETHEREUM SEPOLIA',
+    result: 'LIVE ON SEPOLIA',
+    repo: 'https://github.com/rishbCLN/civic-issue-reporting',
   },
   {
     index: '03',
-    title: 'SYNTHETIC\nMEMORY',
-    type: 'ARCHIVE / CULTURE',
-    year: '2025',
-    description: 'A non-linear cultural archive where sound, image, and language collide in real time.',
-    tags: ['TYPESCRIPT', 'R3F', 'WEB AUDIO'],
-    theme: 'memory',
-    device: 'phone',
-    platform: 'IOS / CULTURAL ARCHIVE',
-    result: '120K STORIES INDEXED',
-    image: 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=1200&q=88&sat=-20',
-    imageAlt: 'Intimate archival-style portrait of a woman against a textured wall',
-    imagePosition: '50% 50%',
-  },
-]
-
-const processPhases = [
-  {
-    number: '01',
-    phase: 'INTERROGATE',
-    title: 'FIND THE\nSIGNAL.',
-    detail: 'Question assumptions, map constraints, and locate the emotional center before touching the interface.',
-  },
-  {
-    number: '02',
-    phase: 'PROTOTYPE',
-    title: 'MAKE IT\nTANGIBLE.',
-    detail: 'Move directly into code. Test interaction, type, performance, and motion in the medium itself.',
-  },
-  {
-    number: '03',
-    phase: 'ENGINEER',
-    title: 'BUILD THE\nSYSTEM.',
-    detail: 'Turn the strongest direction into durable architecture with clear primitives and predictable behavior.',
-  },
-  {
-    number: '04',
-    phase: 'REFINE',
-    title: 'TUNE EVERY\nFRAME.',
-    detail: 'Pressurize the details, remove friction, and make performance part of the final aesthetic.',
+    title: 'ZERO-DEP\nTOOLKIT',
+    type: 'OPEN SOURCE / CLI',
+    year: '2026',
+    description: 'A growing suite of genuinely zero-dependency Node.js developer tools — a Pomodoro timer, snippet vault, JSON viewer, mock API, port killer, and more — each installable and auditable in seconds.',
+    tags: ['NODE.JS', 'CLI', 'ZERO-DEPS'],
+    theme: 'cli',
+    device: 'laptop',
+    platform: 'TERMINAL / NPM',
+    result: '10+ OPEN-SOURCE TOOLS',
+    repo: 'https://github.com/rishbCLN?tab=repositories',
   },
 ]
 
@@ -136,118 +93,76 @@ const brainLayerUrls = Object.entries(brainLayerModules)
   .sort(([firstPath], [secondPath]) => firstPath.localeCompare(secondPath, undefined, { numeric: true }))
   .map(([, url]) => url)
 
-const capabilities = [
-  ['01', 'CREATIVE DEVELOPMENT', 'Interfaces with a point of view. Built from first principles with motion, sound, and interaction as core materials.'],
-  ['02', 'FRONTEND ARCHITECTURE', 'Scalable systems, thoughtful APIs, and production code engineered to remain fast under pressure.'],
-  ['03', '3D & WEBGL', 'Real-time worlds, custom shaders, and spatial experiences optimized for the open web.'],
-  ['04', 'TECHNICAL DIRECTION', 'A practical bridge between ambitious creative vision and dependable engineering execution.'],
-]
-
 const researchPapers = [
   {
-    id: 'ARX-026.1',
-    title: 'LATENT INTERFACES',
-    subtitle: 'A grammar for interfaces that adapt without disappearing',
-    field: 'HUMAN-COMPUTER INTERACTION',
+    id: 'NOTE-01',
+    title: 'MESSAGES WITHOUT A NETWORK',
+    subtitle: 'Store-and-forward relay for phones cut off from the internet',
+    field: 'OFFLINE-FIRST SYSTEMS',
     year: '2026',
-    status: 'PREPRINT',
+    status: 'BUILD NOTES',
     accent: '#e7b65c',
-    figure: 'field',
-    abstract: 'This paper proposes a visual grammar for adaptive interfaces that preserve orientation, authorship, and user agency while changing in real time. It treats adaptation as a legible spatial event rather than an invisible optimization.',
-    quote: 'An interface that adapts in secret teaches people they can no longer trust what they see.',
-    note: 'Prototype-led inquiry across fourteen adaptive layouts against a fixed control. Participants held their orientation only when each change announced itself in space and could be traced back to a cause.',
-    keywords: ['ADAPTIVE UI', 'AGENCY', 'SPATIAL SYSTEMS'],
-  },
-  {
-    id: 'ARX-026.2',
-    title: 'TEMPORAL TYPE',
-    subtitle: 'Reading rhythm under velocity, interruption, and scale',
-    field: 'COMPUTATIONAL TYPOGRAPHY',
-    year: '2026',
-    status: 'UNDER REVIEW',
-    accent: '#ff64bc',
-    figure: 'type',
-    abstract: 'A study of kinetic typography as an information-bearing system. Controlled trials test how acceleration, interruption, and variable width affect comprehension, recall, and the felt duration of digital reading.',
-    quote: 'Type in motion should listen to the reader\u2019s tempo before it dares to set its own.',
-    note: 'Controlled trials with 212 readers measured recall and perceived duration. Motion aided comprehension only when it followed reading rhythm; imposed pacing consistently lowered both.',
-    keywords: ['KINETIC TYPE', 'LEGIBILITY', 'MOTION'],
-  },
-  {
-    id: 'ARX-025.4',
-    title: 'PERCEPTUAL BUDGETS',
-    subtitle: 'Allocating detail in real-time three-dimensional interfaces',
-    field: 'REAL-TIME GRAPHICS',
-    year: '2025',
-    status: 'PUBLISHED',
-    accent: '#6df7ff',
     figure: 'mesh',
-    abstract: 'Instead of treating performance as a single frame-rate target, this work models a perceptual budget across motion, geometry, latency, and contrast. The result is a practical method for spending computation where people can actually perceive it.',
-    quote: 'The frame nobody notices is the cheapest frame you will ever render.',
-    note: 'Eye-tracking during real-time sessions mapped where detail was actually resolved. Reallocating budget away from unseen geometry cut GPU cost by a third with no perceived loss of fidelity.',
-    keywords: ['WEBGL', 'PERCEPTION', 'PERFORMANCE'],
+    abstract: 'Notes from building MeshAlert: when the towers are down, phones can still see each other over local radios. Each device carries messages a few hops further and syncs to a rescue map the instant any node touches the internet again.',
+    quote: 'Connectivity is not binary. A dead network still has neighbours one hop away.',
+    note: 'Working through the hard parts in the open — deduplicating messages that arrive by several paths, ageing out stale packets, and keeping the relay honest when devices join and leave the mesh constantly.',
+    keywords: ['MESH', 'OFFLINE-FIRST', 'FLUTTER'],
   },
   {
-    id: 'ARX-025.1',
-    title: 'THE UNRULY ARCHIVE',
-    subtitle: 'Interfaces for cultural memory beyond search and chronology',
-    field: 'CULTURAL COMPUTING',
+    id: 'NOTE-02',
+    title: 'HISTORY YOU CANNOT QUIETLY EDIT',
+    subtitle: 'Recording civic issues as append-only, verifiable events',
+    field: 'ON-CHAIN PROVENANCE',
     year: '2025',
-    status: 'PUBLISHED',
-    accent: '#ffad42',
+    status: 'PROJECT WRITE-UP',
+    accent: '#ff64bc',
     figure: 'archive',
-    abstract: 'The searchable grid is not a neutral container. This paper explores interfaces that let oral history, ambiguity, repetition, and contradiction remain visible, offering a non-linear model for encountering cultural collections.',
-    quote: 'A search bar quietly asks memory to behave. Most of what matters refuses.',
-    note: 'Fieldwork across three community archives. Visitors dwelt longer on contradictory records than on resolved timelines, reading the friction as a sign of honesty rather than error.',
-    keywords: ['ARCHIVES', 'MEMORY', 'NON-LINEAR UI'],
+    abstract: 'Notes from CivicLedger: a public-infrastructure tracker where every status change is a new immutable event. Evidence lives on IPFS, the trail lives on-chain, and nothing gets silently rewritten after the fact.',
+    quote: 'Trust is cheap to claim and expensive to prove. Provenance flips that.',
+    note: 'Learning where a blockchain actually earns its keep — cost per event on Sepolia, keeping large evidence off-chain via content addressing, and designing an interface that treats an audit trail as the main feature, not a footnote.',
+    keywords: ['SOLIDITY', 'IPFS', 'ACCOUNTABILITY'],
   },
   {
-    id: 'ARX-024.3',
-    title: 'MACHINE ATTENTION',
-    subtitle: 'Making inference visible as a spatial material',
-    field: 'EXPLAINABLE AI',
-    year: '2024',
-    status: 'PROCEEDINGS',
+    id: 'NOTE-03',
+    title: 'THE CASE FOR ZERO DEPENDENCIES',
+    subtitle: 'Building small Node tools you can actually read end to end',
+    field: 'DEVELOPER TOOLING',
+    year: '2026',
+    status: 'ONGOING',
+    accent: '#6df7ff',
+    figure: 'type',
+    abstract: 'Notes behind a growing set of zero-dependency CLI tools — a Pomodoro timer, snippet vault, JSON viewer, mock API, port killer. Each one installs in seconds and has a dependency tree you can audit over a coffee.',
+    quote: 'Every dependency is a stranger you invite into your users\u2019 machines.',
+    note: 'A practical exercise in restraint: reaching for the standard library first, keeping install size and supply-chain surface near zero, and treating a short, legible codebase as a feature rather than a limitation.',
+    keywords: ['NODE.JS', 'CLI', 'ZERO-DEPS'],
+  },
+  {
+    id: 'NOTE-04',
+    title: 'SPENDING FRAMES WHERE THEY SHOW',
+    subtitle: 'Keeping an expressive site fast on the phone in your hand',
+    field: 'WEB PERFORMANCE',
+    year: '2026',
+    status: 'BUILD LOG',
+    accent: '#ffad42',
+    figure: 'field',
+    abstract: 'Notes from building this portfolio: WebGL, scroll choreography, and motion are only worth it if they hold up on a mid-range phone. The goal is spending the compute budget where people can actually perceive it.',
+    quote: 'The frame nobody notices is the cheapest frame you will ever render.',
+    note: 'Chasing a smooth result on real hardware — deferring heavy scenes until they enter view, respecting reduced-motion and low-power hints, and cutting work the eye will never resolve.',
+    keywords: ['WEBGL', 'R3F', 'PERFORMANCE'],
+  },
+  {
+    id: 'NOTE-05',
+    title: 'LEARNING IN PUBLIC',
+    subtitle: 'Notes from a CSE student building to understand',
+    field: 'FUNDAMENTALS',
+    year: '2025',
+    status: 'LEARNING LOG',
     accent: '#b8a0ff',
     figure: 'attention',
-    abstract: 'A visual framework for exposing confidence, omission, and competing machine interpretations. The system turns inference into a navigable field so people can inspect uncertainty rather than receive a single polished answer.',
-    quote: 'A confidence score hides the argument the model had with itself.',
-    note: 'Reviewers inspected model reasoning as a navigable field of competing readings. Surfacing omission and dissent let them catch failures that a single ranked output routinely concealed.',
-    keywords: ['INTERPRETABILITY', 'AI', 'VISUALIZATION'],
-  },
-]
-
-const experience = [
-  {
-    period: '2023 — NOW',
-    role: 'INDEPENDENT CREATIVE DEVELOPER',
-    studio: 'ALEX RIVERA STUDIO',
-    location: 'NEW YORK / GLOBAL',
-    detail: 'Partnering directly with cultural institutions, product teams, and independent founders to create defining digital work.',
-    clients: ['NIKE', 'APPLE', 'NEW MUSEUM', 'ARC’TERYX'],
-  },
-  {
-    period: '2020 — 2023',
-    role: 'TECHNICAL DIRECTOR',
-    studio: 'FORM&FUNCTION',
-    location: 'NEW YORK',
-    detail: 'Led a multidisciplinary engineering group delivering experimental platforms, commerce systems, and installations.',
-    clients: ['GOOGLE', 'SPOTIFY', 'PATAGONIA', 'SONOS'],
-  },
-  {
-    period: '2017 — 2020',
-    role: 'SENIOR CREATIVE DEVELOPER',
-    studio: 'NORTH / EAST',
-    location: 'LONDON',
-    detail: 'Built award-winning campaign experiences and codified the studio’s approach to motion, WebGL, and accessibility.',
-    clients: ['ADIDAS', 'V&A', 'MONOCLE', 'LEGO'],
-  },
-  {
-    period: '2014 — 2017',
-    role: 'INTERACTION ENGINEER',
-    studio: 'FIELD OFFICE',
-    location: 'BERLIN',
-    detail: 'Explored the emerging browser graphics stack through installations, identity systems, and generative tools.',
-    clients: ['A24', 'NASA JPL', 'MIT', 'VITRA'],
+    abstract: 'A running log of the fundamentals under the projects — data structures, networking, and the parts of distributed systems that only click once you break something and have to fix it yourself.',
+    quote: 'You do not really know a concept until a bug forces you to argue with it.',
+    note: 'Writing things down as I learn them, keeping the rough edges visible instead of pretending the path was straight. The mistakes are usually the most useful part of the note.',
+    keywords: ['DSA', 'NETWORKING', 'SELF-TAUGHT'],
   },
 ]
 
@@ -276,34 +191,6 @@ const principles = [
     body: 'The final ten percent is where a digital product gains character: rhythm, sound, easing, copy, focus states, and edge cases.',
     accent: 'orange',
   },
-]
-
-const technologies = [
-  'REACT',
-  'TYPESCRIPT',
-  'THREE.JS',
-  'WEBGL',
-  'GLSL',
-  'FRAMER MOTION',
-  'NEXT.JS',
-  'NODE.JS',
-  'R3F',
-  'WEB AUDIO',
-  'GSAP',
-  'VITE',
-  'D3.JS',
-  'CANVAS',
-  'WASM',
-  'FIGMA',
-]
-
-const recognition = [
-  ['AWWWARDS', 'INDEPENDENT OF THE DAY', '2026'],
-  ['CSS DESIGN AWARDS', 'SPECIAL KUDOS × 3', '2026'],
-  ['THE FWA', 'SITE OF THE DAY', '2025'],
-  ['AWWWARDS', 'DEVELOPER AWARD × 4', '2025'],
-  ['CSS DESIGN AWARDS', 'WEBSITE OF THE DAY', '2024'],
-  ['TYPE DIRECTORS CLUB', 'CERTIFICATE OF EXCELLENCE', '2024'],
 ]
 
 
@@ -514,7 +401,7 @@ function Loader() {
 
     // Hold the loader until primary hero assets are cached
     const SITE_TARGET = 0.85
-    const projectImages = projects.map((p) => p.image).filter(Boolean) as string[]
+    const projectImages: string[] = []
     type LoadTask = { p: Promise<unknown>; w: number; hero: boolean }
     const tasks: LoadTask[] = [
       { p: import('./SonicRing'), w: 6, hero: true },
@@ -668,7 +555,7 @@ function Loader() {
         </div>
       </figure>
       <div className="loader-hud">
-        <div className="loader-mark"><Asterisk size={16} /> AR / 26</div>
+        <div className="loader-mark"><Asterisk size={16} /> RK / 26</div>
         <div className="loader-status" ref={statusRef}>LOADING</div>
       </div>
       <div className="loader-counter"><span ref={numRef}>00</span><i>%</i></div>
@@ -736,13 +623,19 @@ function PointerGlow() {
 
 function ScrollCoordinates() {
   const { scrollYProgress } = useScroll()
-  const [percentage, setPercentage] = useState(0)
-
-  useEffect(() => scrollYProgress.on('change', (value) => setPercentage(Math.round(value * 100))), [scrollYProgress])
+  // Write the percentage straight to the DOM node from the scroll MotionValue
+  // instead of through React state. setState on every scroll change forced a full
+  // reconciliation pass per frame while scrolling — piled onto the heavy WebGL
+  // sections that added up to the main-thread stalls behind the scroll jumps.
+  const valueRef = useRef<HTMLSpanElement>(null)
+  useMotionValueEvent(scrollYProgress, 'change', (value) => {
+    const node = valueRef.current
+    if (node) node.textContent = `Y / ${String(Math.round(value * 100)).padStart(3, '0')}`
+  })
 
   return (
     <div className="scroll-coordinates" aria-hidden="true">
-      <span>Y / {String(percentage).padStart(3, '0')}</span>
+      <span ref={valueRef}>Y / 000</span>
       <i />
       <span>SYS.ONLINE</span>
     </div>
@@ -977,12 +870,12 @@ function ResearchLeaf({ paper, index, reducedMotion, onActive }: {
       <div className="leaf-page leaf-page-right">
         <span className="leaf-pageno">P. {String(index + 1).padStart(2, '0')}</span>
         <div className="leaf-abstract">
-          <span className="leaf-label">Abstract</span>
+          <span className="leaf-label">Summary</span>
           <p><span className="leaf-dropcap">{paper.abstract.charAt(0)}</span>{paper.abstract.slice(1)}</p>
         </div>
         <blockquote className="leaf-quote">{paper.quote}</blockquote>
         <div className="leaf-note">
-          <span className="leaf-label">Research note</span>
+          <span className="leaf-label">Note</span>
           <p>{paper.note}</p>
         </div>
         <ul className="leaf-keywords">
@@ -1026,8 +919,8 @@ function ReducedResearch() {
             ))}
           </nav>
           <div className="ledger-foot">
-            <span>ARX / OPEN SHELF</span>
-            <span>{researchPapers.length} VOLUMES</span>
+            <span>NOTEBOOK / OPEN</span>
+            <span>{researchPapers.length} NOTES</span>
           </div>
         </div>
       </aside>
@@ -1036,8 +929,8 @@ function ReducedResearch() {
           <ResearchLeaf key={paper.id} paper={paper} index={index} reducedMotion onActive={setActiveIndex} />
         ))}
         <div className="stream-endnote">
-          <span>END OF CURRENT SHELF</span>
-          <p>New papers are added as prototypes mature. Preprint requests and correspondence are welcome.</p>
+          <span>END OF CURRENT NOTES</span>
+          <p>New notes go up as the projects grow. Questions and corrections are always welcome.</p>
         </div>
       </div>
     </div>
@@ -1078,12 +971,12 @@ function ArchiveResearch() {
   const prefersReduced = false
   const accent = useMotionValue(researchPapers[0].accent)
 
-  // Viewport gate: only hold a WebGL context for the glass reading room while the
-  // section is near the viewport. We observe the STABLE OUTER section (not the
-  // pinned `.archive-scroll` track, which failed to flip `useInView` reliably and
-  // left the room an empty void) via a native IntersectionObserver with a wide
-  // margin, so the scene mounts a touch early and releases once well past.
-  const [sceneRef, sceneInView] = useNearViewport<HTMLElement>()
+  // Viewport gate: mount the WebGL reading room once it comes near (and keep it
+  // mounted so scrolling back up never re-compiles it — that stall was the
+  // scroll-jump culprit), while `sceneVisible` drives the render loop so it idles
+  // when off-screen. `lowPower` trims DPR/MSAA/env size on constrained devices.
+  const [sceneRef, sceneMounted, sceneVisible] = useLatchedScene<HTMLElement>()
+  const lowPower = useLowPower()
 
   // The pinned track runs in two phases:
   // Phase 1 (0.00 -> 0.72): Reading room exploration. Focus advances across the glass monoliths.
@@ -1175,13 +1068,13 @@ function ArchiveResearch() {
               <motion.span className="research-lamp" style={{ backgroundColor: accent }} />
             </div>
 
-            {sceneInView && (
+            {sceneMounted && (
               <SceneBoundary
                 label="ResearchArchive"
                 fallback={<div className="archive-canvas scene-poster scene-poster--research" aria-hidden="true" />}
               >
                 <Suspense fallback={null}>
-                  <ResearchArchive progress={reading} exit={exit} papers={researchPapers} accent={accent} pdf={pdf} />
+                  <ResearchArchive progress={reading} exit={exit} papers={researchPapers} accent={accent} pdf={pdf} active={sceneVisible} lowPower={lowPower} />
                 </Suspense>
               </SceneBoundary>
             )}
@@ -1228,7 +1121,7 @@ function ArchiveResearch() {
               aria-label={isPdf ? 'PDF pages' : 'Research papers'}
               style={{ opacity: domOpacity, x: ledgerX }}
             >
-              <span className="archive-ledger-tag">{isPdf ? 'UPLOADED PAGES' : 'SELECTED PAPERS'}</span>
+              <span className="archive-ledger-tag">{isPdf ? 'UPLOADED PAGES' : 'SELECTED NOTES'}</span>
               {Array.from({ length: slideCount }).map((_, index) => (
                 <a
                   key={index}
@@ -1364,9 +1257,10 @@ function TechnologySection() {
   // continuous constellation that flows into the contact section.
   const accent = useMotionValue(TOOLKIT_CLUSTERS[0].accent) // static amber core
 
-  // Viewport gate: the orbiting-logos cortex only holds its WebGL context while
-  // the section is near the viewport, then unmounts and releases it.
-  const [sceneRef, sceneInView] = useNearViewport<HTMLElement>()
+  // Viewport gate: mount the orbiting-logos cortex once it comes near and keep
+  // it mounted (idle when off-screen via `sceneVisible` → frameloop) so scrolling
+  // back up doesn't re-compile it and stall the main thread.
+  const [sceneRef, sceneMounted, sceneVisible] = useLatchedScene<HTMLElement>()
 
   // On touch/coarse pointers there's no real hover cursor, and scroll-driven
   // pointer values would otherwise knock the orbiting logos away from the glass
@@ -1383,13 +1277,13 @@ function TechnologySection() {
   return (
     <section className="technology-section" id="toolkit" ref={sceneRef}>
       <div className="toolkit-stage">
-        {sceneInView && (
+        {sceneMounted && (
           <SceneBoundary
             label="ToolkitCortex"
             fallback={<div className="toolkit-canvas scene-poster scene-poster--toolkit" aria-hidden="true" />}
           >
             <Suspense fallback={null}>
-              <ToolkitCortex accent={accent} coarse={coarse} />
+              <ToolkitCortex accent={accent} coarse={coarse} active={sceneVisible} />
             </Suspense>
           </SceneBoundary>
         )}
@@ -1403,136 +1297,162 @@ function TechnologySection() {
   )
 }
 
-function WeatherScreen({ active }: { active: boolean }) {
-  const forecast = [
-    ['NOW', '14°'],
-    ['21', '12°'],
-    ['00', '09°'],
-    ['03', '07°'],
-    ['06', '08°'],
+function MeshScreen({ active }: { active: boolean }) {
+  // A small mesh of peer nodes; edges pulse as messages hop between devices.
+  const nodes = [
+    { x: 50, y: 20 },
+    { x: 22, y: 44 },
+    { x: 78, y: 44 },
+    { x: 34, y: 74 },
+    { x: 66, y: 74 },
+  ]
+  const edges = [
+    [0, 1], [0, 2], [1, 3], [2, 4], [3, 4], [1, 2],
   ]
   return (
-    <div className="app-scene app-weather">
+    <div className="app-scene app-mesh">
       <div className="app-noise" aria-hidden="true" />
-      <motion.div
-        className="wx-orb"
-        aria-hidden="true"
-        animate={active ? { scale: 1.06, rotate: 8 } : { scale: 1, rotate: 0 }}
-        transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <i /><i /><i />
-      </motion.div>
-      <motion.span className="wx-scan" aria-hidden="true" animate={{ y: ['0%', '2400%'] }} transition={{ duration: 4.5, repeat: Infinity, ease: 'linear' }} />
-      <div className="app-status"><span>9:41</span><span className="app-status-dots"><i /><i /><i /></span></div>
-      <div className="wx-head">
-        <span>NORTH ATLANTIC CELL</span>
-        <strong>REYKJAVÍK</strong>
+      <div className="app-status"><span>MESHALERT</span><span className="ms-offline"><i /> OFFLINE MESH</span></div>
+
+      <div className="ms-head">
+        <span>NO INTERNET · PEER RELAY</span>
+        <strong>5 DEVICES LINKED</strong>
       </div>
-      <div className="wx-temp">
-        <em>14<sup>°</sup></em>
-        <span>FEELS 09° / CLEARING<br />WIND SHEAR NOMINAL</span>
+
+      <div className="ms-graph" aria-hidden="true">
+        <svg viewBox="0 0 100 94" preserveAspectRatio="xMidYMid meet">
+          {edges.map(([a, b], i) => (
+            <motion.line
+              key={`${a}-${b}`}
+              x1={nodes[a].x} y1={nodes[a].y}
+              x2={nodes[b].x} y2={nodes[b].y}
+              className="ms-edge"
+              animate={active ? { opacity: [0.15, 0.8, 0.15] } : { opacity: 0.25 }}
+              transition={{ duration: 2.2, repeat: active ? Infinity : 0, delay: i * 0.28, ease: 'easeInOut' }}
+            />
+          ))}
+          {nodes.map((n, i) => (
+            <motion.circle
+              key={i}
+              cx={n.x} cy={n.y} r={i === 0 ? 4.6 : 3.4}
+              className={i === 0 ? 'ms-node ms-node-self' : 'ms-node'}
+              animate={active ? { scale: [1, 1.18, 1] } : { scale: 1 }}
+              style={{ transformOrigin: `${n.x}px ${n.y}px` }}
+              transition={{ duration: 2, repeat: active ? Infinity : 0, delay: i * 0.2, ease: 'easeInOut' }}
+            />
+          ))}
+        </svg>
       </div>
-      <div className="wx-readouts">
-        <span>HUMIDITY<b>72%</b></span>
-        <span>PRESSURE<b>1014</b></span>
-        <span>UV IDX<b>02</b></span>
+
+      <div className="ms-readouts">
+        <span>HOPS<b>3</b></span>
+        <span>PEERS<b>04</b></span>
+        <span>QUEUED<b>12</b></span>
       </div>
-      <div className="wx-forecast">
-        {forecast.map(([h, t], i) => (
-          <motion.span
-            key={h}
-            initial={{ opacity: 0, y: 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.2 + i * 0.06 }}
-          >
-            <small>{h}</small>
-            <Wind />
-            <b>{t}</b>
-          </motion.span>
-        ))}
+
+      <div className="ms-sos">
+        <motion.span
+          className="ms-sos-ring"
+          aria-hidden="true"
+          animate={active ? { scale: [1, 1.6], opacity: [0.5, 0] } : { scale: 1, opacity: 0 }}
+          transition={{ duration: 1.8, repeat: active ? Infinity : 0, ease: 'easeOut' }}
+        />
+        <Zap size={15} /> BROADCAST SOS
       </div>
     </div>
   )
 }
 
-function NoirScreen({ active }: { active: boolean }) {
-  const products = [
-    ['001', 'STRUCTURED COAT', '€1,290'],
-    ['002', 'RAW HEM TROUSER', '€560'],
-    ['003', 'CASHMERE MASK', '€340'],
+function CivicScreen({ active }: { active: boolean }) {
+  const timeline = [
+    ['REPORTED', 'Pothole flagged with photo evidence', '0xa1f… → IPFS'],
+    ['VERIFIED', 'Community confirmed on-chain', 'block 6,421,908'],
+    ['FUNDED', 'Transparent repair donation', '0.42 ETH'],
   ]
   return (
-    <div className="app-scene app-noir">
+    <div className="app-scene app-civic">
       <div className="app-noise" aria-hidden="true" />
-      <header className="nr-bar">
-        <span className="nr-logo">NOIR<sup>®</sup></span>
-        <nav><span>SHOP</span><span>ARCHIVE</span><span>ATELIER</span></nav>
-        <span className="nr-cart"><ShoppingBag /> 02</span>
+      <header className="cv-bar">
+        <span className="cv-logo">CIVIC<b>LEDGER</b></span>
+        <nav><span>ISSUES</span><span>MAP</span><span>AUDIT</span></nav>
+        <span className="cv-wallet"><i /> 0x7a3…e12</span>
       </header>
-      <div className="nr-hero">
-        <motion.div className="nr-column" aria-hidden="true" animate={active ? { y: -8 } : { y: 0 }} transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }} />
-        <div className="nr-hero-type">
-          <span>AUTUMN / WINTER 26</span>
-          <h4>UN&shy;COMPRO&shy;MISED</h4>
-          <p>An independent house building garments as systems — modular, monochrome, permanent.</p>
+
+      <div className="cv-body">
+        <div className="cv-issue">
+          <span className="cv-tag">ISSUE #0247 · APPEND-ONLY</span>
+          <h4>BROKEN STREETLIGHT</h4>
+          <p>Every status update is written as a new immutable event — evidence on IPFS, history verifiable on Ethereum Sepolia.</p>
+          <span className="cv-cid">CID bafybeih…q4k2</span>
+        </div>
+
+        <div className="cv-timeline">
+          {timeline.map(([state, label, meta], i) => (
+            <motion.div
+              key={state}
+              className="cv-event"
+              initial={{ opacity: 0, x: 12 }}
+              animate={active ? { opacity: 1, x: 0 } : { opacity: 0.4, x: 0 }}
+              transition={{ delay: 0.15 + i * 0.18, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <span className="cv-dot" aria-hidden="true"><Check size={11} /></span>
+              <div className="cv-event-body">
+                <strong>{state}</strong>
+                <span>{label}</span>
+                <b>{meta}</b>
+              </div>
+            </motion.div>
+          ))}
         </div>
       </div>
-      <div className="nr-grid">
-        {products.map(([idx, name, price], i) => (
-          <motion.article
-            key={idx}
-            initial={{ opacity: 0, y: 14 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.15 + i * 0.08 }}
-          >
-            <span className="nr-swatch" aria-hidden="true"><i /></span>
-            <span className="nr-index">{idx}</span>
-            <strong>{name}</strong>
-            <b>{price}</b>
-          </motion.article>
-        ))}
-      </div>
-      <div className="nr-foot"><span>FREE ATELIER RETURNS</span><span className="nr-add">ADD TO BAG <Plus /></span></div>
+
+      <div className="cv-foot"><span>PROOF OVER TRUST</span><span className="cv-verify"><Database size={12} /> VERIFIED ON-CHAIN</span></div>
     </div>
   )
 }
 
-function MemoryScreen({ active }: { active: boolean }) {
-  const tiles = ['1954', '1971', '1988', '1996', '2003', '2011']
+function CliScreen({ active }: { active: boolean }) {
+  const lines: { prompt?: boolean; text: string; muted?: boolean }[] = [
+    { prompt: true, text: 'npx pomo start --deep-work' },
+    { text: '◷ 25:00 focus · streak 6 days · 0 deps', muted: true },
+    { prompt: true, text: 'jsonpeek package.json .scripts.build' },
+    { text: '"tsc -b && vite build"', muted: true },
+    { prompt: true, text: 'portkill 3000' },
+    { text: '✓ freed :3000 (node 41822)', muted: true },
+    { prompt: true, text: 'snipvault add "flex-center"' },
+    { text: '✓ saved · fuzzy-searchable · offline', muted: true },
+  ]
   return (
-    <div className="app-scene app-memory">
+    <div className="app-scene app-cli">
       <div className="app-noise" aria-hidden="true" />
-      <div className="app-status"><span>SYNTHETIC MEMORY</span><span className="mm-live"><i /> REC</span></div>
-      <div className="mm-search"><Search /><span>trace a sound, a face, a year…</span></div>
-      <div className="mm-wave" aria-hidden="true">
-        {Array.from({ length: 34 }, (_, i) => (
-          <motion.i
+      <header className="cli-bar">
+        <span className="cli-dots" aria-hidden="true"><i /><i /><i /></span>
+        <span className="cli-title"><TerminalSquare size={12} /> zero-dep toolkit</span>
+        <span className="cli-badge">0 DEPENDENCIES</span>
+      </header>
+
+      <div className="cli-body">
+        {lines.map((l, i) => (
+          <motion.div
             key={i}
-            animate={active ? { scaleY: [0.3, 1, 0.5, 0.9, 0.35] } : { scaleY: 0.4 }}
-            transition={{ duration: 1.6, repeat: active ? Infinity : 0, delay: i * 0.03, ease: 'easeInOut' }}
-          />
-        ))}
-      </div>
-      <div className="mm-grid">
-        {tiles.map((year, i) => (
-          <motion.span
-            key={year}
-            className={`mm-tile mm-tile-${i % 4}`}
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.1 + i * 0.05 }}
+            className={`cli-line${l.muted ? ' cli-out' : ''}`}
+            initial={{ opacity: 0 }}
+            animate={active ? { opacity: 1 } : { opacity: 0.5 }}
+            transition={{ delay: 0.1 + i * 0.16, duration: 0.35 }}
           >
-            <b>{year}</b>
-          </motion.span>
+            {l.prompt && <span className="cli-prompt">rk@vit ~ $</span>}
+            <span>{l.text}</span>
+          </motion.div>
         ))}
+        <motion.span
+          className="cli-caret"
+          aria-hidden="true"
+          animate={active ? { opacity: [1, 1, 0, 0, 1] } : { opacity: 1 }}
+          transition={{ duration: 1, repeat: active ? Infinity : 0, ease: 'linear' }}
+        />
       </div>
-      <div className="mm-foot">
-        <span className="mm-play"><Play /> PLAY THREAD</span>
-        <span className="mm-count">120,418 FRAGMENTS</span>
-      </div>
+
+      <div className="cli-foot"><span>INSTALL &amp; AUDIT IN SECONDS</span><span className="cli-count">10+ TOOLS ON NPM</span></div>
     </div>
   )
 }
@@ -1540,9 +1460,9 @@ function MemoryScreen({ active }: { active: boolean }) {
 function ProjectScreen({ project, active }: { project: typeof projects[number]; active: boolean }) {
   return (
     <div className="app-screen" data-theme={project.theme}>
-      {project.theme === 'weather' && <WeatherScreen active={active} />}
-      {project.theme === 'noir' && <NoirScreen active={active} />}
-      {project.theme === 'memory' && <MemoryScreen active={active} />}
+      {project.theme === 'mesh' && <MeshScreen active={active} />}
+      {project.theme === 'civic' && <CivicScreen active={active} />}
+      {project.theme === 'cli' && <CliScreen active={active} />}
     </div>
   )
 }
@@ -1697,7 +1617,7 @@ function Project({ project, position }: { project: typeof projects[number], posi
         </motion.p>
         <motion.a
           className="project-repo"
-          href="https://github.com/alexrivera/example-project"
+          href={project.repo}
           target="_blank"
           rel="noreferrer"
           aria-label={`View ${project.title.replace('\n', ' ')} on GitHub`}
@@ -1717,8 +1637,8 @@ function Header() {
   const [open, setOpen] = useState(false)
   return (
     <header>
-      <a className="wordmark" href="#top" aria-label="Alex Rivera home">A<span>R</span><sup>26</sup></a>
-      <div className="availability"><i /> AVAILABLE FOR SELECT PROJECTS <span>SEP '26</span></div>
+      <a className="wordmark" href="#top" aria-label="Rishabh Kumar home">R<span>K</span><sup>26</sup></a>
+      <div className="availability"><i /> OPEN TO INTERNSHIPS &amp; FREELANCE <span>SEP '26</span></div>
       <button className="menu-button" onClick={() => setOpen(!open)} aria-label="Toggle navigation" aria-expanded={open}>
         <span>{open ? 'CLOSE' : 'MENU'}</span><b className={open ? 'is-open' : ''}><i /><i /></b>
       </button>
@@ -1730,7 +1650,7 @@ function Header() {
                 <small>0{i + 1}</small>{item}<ArrowUpRight />
               </motion.a>
             ))}
-            <div className="menu-footer"><span>NEW YORK / GLOBAL</span><LiveClock /><span>HELLO@ALEXRIVERA.DEV</span></div>
+            <div className="menu-footer"><span>INDIA</span><LiveClock /><span>RISHABH.KUMAR2024@VITSTUDENT.AC.IN</span></div>
           </motion.nav>
         )}
       </AnimatePresence>
@@ -1804,9 +1724,8 @@ const heroMaskGlow: Variants = {
 // --- Contact ---------------------------------------------------------------
 
 const CONTACT_NODES: { key: string; label: string; handle: string; href: string; cta: string; Icon: LucideIcon }[] = [
-  { key: 'github', label: 'GitHub', handle: 'github.com/alexrivera', href: 'https://github.com', cta: 'View GitHub', Icon: Github },
-  { key: 'linkedin', label: 'LinkedIn', handle: 'in/alexrivera', href: 'https://linkedin.com', cta: 'Connect on LinkedIn', Icon: Linkedin },
-  { key: 'email', label: 'Email', handle: 'hello@alexrivera.dev', href: 'mailto:hello@alexrivera.dev', cta: 'Send an email', Icon: Mail },
+  { key: 'github', label: 'GitHub', handle: 'github.com/rishbCLN', href: 'https://github.com/rishbCLN', cta: 'View GitHub', Icon: Github },
+  { key: 'email', label: 'Email', handle: 'rishabh.kumar2024@vitstudent.ac.in', href: 'mailto:rishabh.kumar2024@vitstudent.ac.in', cta: 'Send an email', Icon: Mail },
 ]
 
 // The prism stage resolves as one piece: the whole canvas WRAPPER (never the 3D
@@ -1940,12 +1859,12 @@ function ContactNode({
 function ContactSection() {
   const ref = useRef<HTMLElement>(null)
   const inView = useInView(ref, { once: true, margin: '200px 0px' })
-  // Separate, LIVE (non-once) gate for the WebGL prisms so the context is
-  // released when the section scrolls out of view — unlike `inView` above, which
-  // is `once: true` because the text entrance should play only a single time.
-  // Wide margin so the prism scene mounts/warms ~1.3 screens early and is ready
-  // before it enters view instead of popping in mid-scroll.
-  const canvasInView = useInView(ref, { margin: '1400px 0px 1400px 0px' })
+  // Latched mount + live-visibility gate for the WebGL prisms, attached to the
+  // stage below. Mount ~1.3 screens early and KEEP mounted (scrolling back up no
+  // longer re-compiles the transmission+bloom scene — that stall was the
+  // scroll-jump culprit); `sceneVisible` drives frameloop so it idles off-screen.
+  const [stageRef, sceneMounted, sceneVisible] = useLatchedScene<HTMLDivElement>()
+  const lowPower = useLowPower()
   const footRef = useRef<HTMLDivElement>(null)
   const footInView = useInView(footRef, { once: true, margin: '-12%' })
   // Creative showcase: the contact prisms spin, sparkle and the text masks play
@@ -1975,14 +1894,13 @@ function ContactSection() {
     widthMq.addEventListener('change', sync)
     return () => widthMq.removeEventListener('change', sync)
   }, [])
-  const showCanvas = canvasInView
 
   const enter = (i: number) => { setActive(i); focus.set(i) }
   const leave = () => { setActive(null); focus.set(-1) }
 
   async function copyEmail() {
     try {
-      await navigator.clipboard.writeText('hello@alexrivera.dev')
+      await navigator.clipboard.writeText('rishabh.kumar2024@vitstudent.ac.in')
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1800)
     } catch {
@@ -2014,25 +1932,25 @@ function ContactSection() {
           animate={inView ? { opacity: 1, y: 0 } : undefined}
           transition={{ duration: 0.8, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
         >
-          Pick a channel. Three ways to reach a real human.
+          Pick a channel. Two ways to reach me directly.
         </motion.p>
 
-        <div className="contact-stage">
+        <div className="contact-stage" ref={stageRef}>
           <motion.div
             className="contact-canvas-layer"
             aria-hidden="true"
             initial="rest"
-            animate={showCanvas ? 'show' : 'rest'}
+            animate={sceneVisible ? 'show' : 'rest'}
             variants={canvasReveal}
             transition={reduced ? { duration: 0.001 } : { duration: 1.25, ease: [0.16, 1, 0.3, 1] }}
           >
-            {showCanvas && (
+            {sceneMounted && (
               <SceneBoundary
                 label="ContactConstellation"
                 fallback={<div className="contact-canvas scene-poster scene-poster--contact" aria-hidden="true" />}
               >
                 <Suspense fallback={null}>
-                  <ContactConstellation focus={focus} reduced={reduced} compact={compact} />
+                  <ContactConstellation focus={focus} reduced={reduced} compact={compact} active={sceneVisible} lowPower={lowPower} />
                 </Suspense>
               </SceneBoundary>
             )}
@@ -2063,10 +1981,10 @@ function ContactSection() {
             type="button"
             className={`contact-copy${copied ? ' is-copied' : ''}`}
             onClick={copyEmail}
-            aria-label={copied ? 'Email address copied to clipboard' : 'Copy email address hello@alexrivera.dev'}
+            aria-label={copied ? 'Email address copied to clipboard' : 'Copy email address rishabh.kumar2024@vitstudent.ac.in'}
           >
             <span className="contact-copy-swap" aria-hidden="true">
-              <span>hello@alexrivera.dev</span>
+              <span>rishabh.kumar2024@vitstudent.ac.in</span>
               <span>COPIED TO CLIPBOARD</span>
             </span>
             {copied ? <Check /> : <Copy />}
@@ -2076,17 +1994,16 @@ function ContactSection() {
         </motion.div>
 
         <motion.footer variants={footItem}>
-          <a href="#top" className="footer-mark">AR<sup>26</sup></a>
-          <p>INDEPENDENT CREATIVE DEVELOPER<br />NEW YORK / WORKING GLOBALLY</p>
+          <a href="#top" className="footer-mark">RK<sup>26</sup></a>
+          <p>CREATIVE DEVELOPER &middot; CSE @ VIT<br />INDIA / WORKING REMOTELY</p>
           <div className="socials">
-            <a href="https://github.com" aria-label="GitHub" target="_blank" rel="noopener noreferrer"><Github /></a>
-            <a href="https://linkedin.com" aria-label="LinkedIn" target="_blank" rel="noopener noreferrer"><Linkedin /></a>
-            <a href="mailto:hello@alexrivera.dev" aria-label="Email"><Mail /></a>
+            <a href="https://github.com/rishbCLN" aria-label="GitHub" target="_blank" rel="noopener noreferrer"><Github /></a>
+            <a href="mailto:rishabh.kumar2024@vitstudent.ac.in" aria-label="Email"><Mail /></a>
           </div>
           <a href="#top" className="back-top">BACK TO TOP <ArrowUpRight /></a>
         </motion.footer>
 
-        <motion.div className="contact-utility" variants={footItem}><LiveClock /><span>&copy; 2026 ALEX RIVERA</span><SoundControl /></motion.div>
+        <motion.div className="contact-utility" variants={footItem}><LiveClock /><span>&copy; 2026 RISHABH KUMAR</span><SoundControl /></motion.div>
       </motion.div>
     </section>
   )
@@ -2099,7 +2016,6 @@ function App() {
   // The hero is pinned; scroll scrubs the hands together, then we zoom through the ring to black.
   const heroRef = useRef<HTMLElement>(null)
   const { scrollYProgress: heroRaw } = useScroll({ target: heroRef, offset: ['start start', 'end end'] })
-
   // The hands close over 0 -> 0.46 of progress and that timing is dialled in
   // perfectly, so we must NOT change the scroll distance the hands travel. But
   // the dive + warp felt hyper-sensitive because the WHOLE back half was crammed
@@ -2123,12 +2039,28 @@ function App() {
   const heroProgress = useSmoothed(heroMapped, 80)
 
   // Viewport gate for the three hero WebGL canvases (SonicRing / WarpField /
-  // SonicExitRing). They mount while any part of the tall pinned hero is near
-  // the viewport and unmount — releasing their WebGL contexts — once it's
-  // scrolled well past. The generous margin keeps them warm through the entire
-  // hero scroll journey and guarantees they're mounted at load (hero is at the
-  // top), so the loader's warm-up probes still fire.
-  const heroInView = useInView(heroRef, { margin: '200px 0px 200px 0px' })
+  // SonicExitRing). Like every other heavy section, the hero now LATCHES: the
+  // scenes mount once (while the tall pinned hero is near the viewport — which
+  // is immediately, since the hero starts at the top) and are never unmounted.
+  // Unmounting them on scroll-up used to recompile shaders / rebuild env maps,
+  // stalling the main thread so queued wheel/touch momentum applied in one lurch
+  // (the mobile "teleport" jump) and flashing the hero black on re-entry
+  // (desktop flicker). Instead they stay mounted but idle: `heroVisible` drives
+  // each Canvas's `frameloop`, so an off-screen hero renders on demand only
+  // (≈ zero GPU) and total live WebGL contexts stay bounded.
+  const [heroSceneRef, heroMounted, heroVisible] = useLatchedScene<HTMLElement>()
+  // `useScroll` needs `heroRef`; the latch observer needs its own ref. Feed both
+  // from one callback ref so the pinned <section> drives scroll scrub AND the
+  // near/visible observers off the same node.
+  const setHeroRefs = useCallback(
+    (node: HTMLElement | null) => {
+      heroRef.current = node
+      ;(heroSceneRef as React.MutableRefObject<HTMLElement | null>).current = node
+    },
+    [heroSceneRef],
+  )
+  // Trim DPR on constrained devices for the three hero WebGL canvases too.
+  const heroLowPower = useLowPower()
 
   // Latches true the instant the loader curtain starts parting; drives the hero
   // text entrance so it choreographs with the hand-off.
@@ -2159,8 +2091,23 @@ function App() {
   // as one continuous surface straight into the 01 / MANIFESTO section.
   const emergeOpacity = useTransform(heroProgress, [0.965, 0.985, 1], [0, 1, 1])
 
+  // Own scroll restoration. Left at the browser default ('auto'), a reload or
+  // back-navigation restores the previous offset WHILE the loader plays and Lenis
+  // re-initialises and the 1200svh hero re-mounts — the restored position then
+  // fights the settling layout and reads as a jump to a random spot. Take manual
+  // control and always start at the top so the intro plays cleanly from frame 0.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('scrollRestoration' in window.history)) return
+    const previous = window.history.scrollRestoration
+    window.history.scrollRestoration = 'manual'
+    window.scrollTo(0, 0)
+    return () => {
+      window.history.scrollRestoration = previous
+    }
+  }, [])
+
   // Studio-grade eased/inertial scrolling. Everything scroll-driven (hero scrub,
-  // ScrollApple, progress) rides on top of Lenis, so nothing feels linear.
+  // progress) rides on top of Lenis, so nothing feels linear.
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
@@ -2211,11 +2158,10 @@ function App() {
       <Cursor />
       <PointerGlow />
       <ScrollCoordinates />
-      <ScrollApple />
       <motion.div className="progress" style={{ scaleX: progress }} />
       <Header />
       <main id="top">
-        <section className="hero" ref={heroRef}>
+        <section className="hero" ref={setHeroRefs}>
           <div className="hero-stage">
             <motion.div className="hero-panel" style={{ scale: panelScale, opacity: panelOpacity }}>
               <HeroHandsScene progress={heroProgress} />
@@ -2228,7 +2174,7 @@ function App() {
                   initial="hidden"
                   animate={heroShown ? 'show' : 'hidden'}
                 >
-                  Independent creative developer in New York, designing and
+                  Creative developer and CSE student in India, designing and
                   engineering expressive, high-performance work for the web.
                 </motion.p>
                 <motion.div
@@ -2239,8 +2185,8 @@ function App() {
                   initial="hidden"
                   animate={heroShown ? 'show' : 'hidden'}
                 >
-                  <span>40.7128° N</span>
-                  <span>74.0060° W</span>
+                  <span>12.9692° N</span>
+                  <span>79.1559° E</span>
                   <LiveClock />
                 </motion.div>
               </div>
@@ -2278,23 +2224,23 @@ function App() {
               </motion.div>
             </motion.div>
 
-            {heroInView && (
+            {heroMounted && (
               <>
                 <SceneBoundary label="SonicRing">
                   <Suspense fallback={null}>
-                    <SonicRing progress={heroProgress} />
+                    <SonicRing progress={heroProgress} active={heroVisible} lowPower={heroLowPower} />
                   </Suspense>
                 </SceneBoundary>
 
                 <SceneBoundary label="WarpField">
                   <Suspense fallback={null}>
-                    <WarpField progress={heroProgress} />
+                    <WarpField progress={heroProgress} active={heroVisible} lowPower={heroLowPower} />
                   </Suspense>
                 </SceneBoundary>
 
                 <SceneBoundary label="SonicExitRing">
                   <Suspense fallback={null}>
-                    <SonicExitRing progress={heroProgress} />
+                    <SonicExitRing progress={heroProgress} active={heroVisible} lowPower={heroLowPower} />
                   </Suspense>
                 </SceneBoundary>
               </>
@@ -2311,10 +2257,10 @@ function App() {
         <section className="statement" id="about">
           <div className="section-tag"><span>01</span> / MANIFESTO</div>
           <Reveal>
-            <p className="statement-copy">I PARTNER WITH <span>AMBITIOUS PEOPLE</span> TO SHAPE IDEAS INTO DIGITAL EXPERIENCES THAT FEEL <i>INEVITABLE</i>, NOT FAMILIAR.</p>
+            <p className="statement-copy">I BUILD <span>FROM FIRST PRINCIPLES</span> TO LEARN HOW SYSTEMS REALLY WORK, THEN SHAPE THEM INTO THINGS THAT FEEL <i>INEVITABLE</i>, NOT FAMILIAR.</p>
           </Reveal>
           <Reveal className="statement-foot">
-            <p>Ten years at the intersection of engineering and design. Building expressive, high-performance work for screens of every size.</p>
+            <p>Working at the intersection of engineering and design. Building expressive, high-performance work for screens of every size.</p>
             <Braces size={40} strokeWidth={1} />
           </Reveal>
         </section>

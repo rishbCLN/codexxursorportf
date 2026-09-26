@@ -443,11 +443,13 @@ function Scene({
   progress,
   exit,
   accent,
+  lowPower = false,
 }: {
   slides: Slide[]
   progress: MotionValue<number>
   exit?: MotionValue<number>
   accent: MotionValue<string>
+  lowPower?: boolean
 }) {
   const smooth = useSpring(progress, { stiffness: 70, damping: 26, mass: 0.4, restDelta: 0.0004 })
   const focus = useTransform(smooth, (p) => p * Math.max(1, slides.length - 1))
@@ -466,7 +468,7 @@ function Scene({
       <directionalLight position={[-5, -2, 2]} intensity={0.6} color="#7fa8ff" />
       <AccentLight accent={accent} exit={exit} />
 
-      <Environment resolution={256} frames={1}>
+      <Environment resolution={lowPower ? 128 : 256} frames={1}>
         <color attach="background" args={['#080706']} />
         <Lightformer form="rect" intensity={3} color="#fff0d6" scale={[10, 10, 1]} position={[0, 6, -9]} />
         <Lightformer form="ring" intensity={2.2} color="#9fd0ff" scale={[5, 5, 1]} position={[-9, 1, -3]} />
@@ -495,12 +497,16 @@ export default function ResearchArchive({
   papers,
   accent,
   pdf,
+  active = true,
+  lowPower = false,
 }: {
   progress: MotionValue<number>
   exit?: MotionValue<number>
   papers: ArchivePaper[]
   accent: MotionValue<string>
   pdf?: RenderedPdf | null
+  active?: boolean
+  lowPower?: boolean
 }) {
   // Build the slides from an uploaded PDF if we have one, otherwise the samples.
   const slides = useMemo<Slide[]>(() => {
@@ -566,12 +572,15 @@ export default function ResearchArchive({
       <Canvas
         key={canvasKey}
         onCreated={onCreated}
-        dpr={[1, 1.6]}
+        // Idle (demand) while off-screen so the glass reading-room stops
+        // rendering when scrolled away — see ContactConstellation.
+        frameloop={active ? 'always' : 'demand'}
+        dpr={[1, lowPower ? 1.2 : 1.6]}
         camera={{ position: [0, 0.3, 9], fov: 30 }}
-        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        gl={{ antialias: !lowPower, powerPreference: 'high-performance' }}
       >
         <Suspense fallback={null}>
-          <Scene slides={slides} progress={progress} exit={exit} accent={accent} />
+          <Scene slides={slides} progress={progress} exit={exit} accent={accent} lowPower={lowPower} />
         </Suspense>
       </Canvas>
     </div>

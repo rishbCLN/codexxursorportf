@@ -856,7 +856,7 @@ function FieldScene({ progress }: { progress: MotionValue<number> }) {
   )
 }
 
-export default function WarpField({ progress }: { progress: MotionValue<number> }) {
+export default function WarpField({ progress, active = true, lowPower = false }: { progress: MotionValue<number>; active?: boolean; lowPower?: boolean }) {
   // The whole layer only exists during the warp window (fades in as we enter
   // the corridor, out before the exit ring). Cheap CSS-level gate on the whole
   // canvas so we're not compositing a full post-pipeline over the hero.
@@ -872,7 +872,8 @@ export default function WarpField({ progress }: { progress: MotionValue<number> 
         key={canvasKey}
         onCreated={onCreated}
         shadows
-        dpr={[1, 1.7]}
+        frameloop={active ? 'always' : 'demand'}
+        dpr={[1, lowPower ? 1.3 : 1.7]}
         camera={{ position: [0, 0, CAM_Z], fov: WARP_FOV }}
         gl={{ antialias: false, alpha: true, powerPreference: 'high-performance' }}
       >

@@ -29,16 +29,10 @@ const CAMERA_Z = 9 // must match the <Canvas camera> z — used to aim each pris
 
 type Brand = { path: string; hex: string }
 
-// LinkedIn was pulled from simple-icons over trademark policy, so its official
-// glyph path is embedded directly (same 24x24 shape ExtrudeGeometry consumes).
-const siLinkedinPath =
-  'M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z'
-
 // Brand marks lifted to read on the dark stage: GitHub's near-black becomes warm
-// paper, LinkedIn/Gmail keep a brightened brand hue. The acid glow ties them together.
+// paper, Gmail keeps a brightened brand hue. The acid glow ties them together.
 const NODES: { key: string; icon: Brand; tint: string }[] = [
   { key: 'github', icon: siGithub, tint: '#f2f1eb' },
-  { key: 'linkedin', icon: { path: siLinkedinPath, hex: '0A66C2' }, tint: '#6fb2e8' },
   { key: 'gmail', icon: siGmail, tint: '#ef5b4c' },
 ]
 
@@ -324,7 +318,7 @@ function Prism({
 
 // --- Scene ---------------------------------------------------------------
 
-function Scene({ focus, reduced, compact }: { focus: MotionValue<number>; reduced: boolean; compact: boolean }) {
+function Scene({ focus, reduced, compact, lowPower }: { focus: MotionValue<number>; reduced: boolean; compact: boolean; lowPower: boolean }) {
   const viewport = useThree((s) => s.viewport)
   // The canvas is intentionally larger than the visible stage (see the
   // .contact-canvas-layer inset) so a prism can swell / rise on hover without the
@@ -369,7 +363,7 @@ function Scene({ focus, reduced, compact }: { focus: MotionValue<number>; reduce
       <directionalLight position={[4, 5, 6]} intensity={1.4} color="#ffe9c2" />
       <directionalLight position={[-6, -2, 2]} intensity={0.6} color="#8fb2ff" />
 
-      <Environment resolution={256} frames={1}>
+      <Environment resolution={lowPower ? 128 : 256} frames={1}>
         <color attach="background" args={['#050308']} />
         <Lightformer form="rect" intensity={3} color="#fff0d6" scale={[10, 10, 1]} position={[0, 6, -9]} />
         <Lightformer form="ring" intensity={2.4} color="#9fd0ff" scale={[6, 6, 1]} position={[-9, 1, -3]} />
@@ -377,11 +371,14 @@ function Scene({ focus, reduced, compact }: { focus: MotionValue<number>; reduce
       </Environment>
 
       {NODES.map((node, i) => {
-        // Phone: stack vertically (top→bottom), centred on x, no yaw. Otherwise:
-        // the classic side-by-side row, each prism yawed to face the camera.
-        const offsetX = compact ? 0 : spread * (i - 1)
-        const offsetY = compact ? vSpread * (1 - i) : 0
-        const yaw = compact ? 0 : Math.atan2(-(spread * (i - 1)), CAMERA_Z)
+        // Center any number of nodes around the origin: `centered` runs from
+        // -(n-1)/2 .. +(n-1)/2. Phone: stack vertically (top→bottom), centred on
+        // x, no yaw. Otherwise: the classic side-by-side row, each prism yawed to
+        // face the camera.
+        const centered = i - (NODES.length - 1) / 2
+        const offsetX = compact ? 0 : spread * centered
+        const offsetY = compact ? -vSpread * centered : 0
+        const yaw = compact ? 0 : Math.atan2(-(spread * centered), CAMERA_Z)
         return (
           <Prism
             key={node.key}
@@ -400,7 +397,7 @@ function Scene({ focus, reduced, compact }: { focus: MotionValue<number>; reduce
 
       <Sparkles count={26} scale={[14, 6, 4]} size={1.6} speed={reduced ? 0 : 0.28} color={ACID} opacity={0.32} />
 
-      <EffectComposer enableNormalPass={false} multisampling={2}>
+      <EffectComposer enableNormalPass={false} multisampling={lowPower ? 0 : 2}>
         <Bloom intensity={0.4} luminanceThreshold={0.55} luminanceSmoothing={0.3} mipmapBlur radius={0.5} />
       </EffectComposer>
     </>
@@ -411,10 +408,14 @@ export default function ContactConstellation({
   focus,
   reduced = false,
   compact = false,
+  active = true,
+  lowPower = false,
 }: {
   focus: MotionValue<number>
   reduced?: boolean
   compact?: boolean
+  active?: boolean
+  lowPower?: boolean
 }) {
   const { canvasKey, onCreated } = useWebGLResilience()
   return (
@@ -422,12 +423,16 @@ export default function ContactConstellation({
       <Canvas
         key={canvasKey}
         onCreated={onCreated}
-        dpr={[1, reduced ? 1.3 : 1.8]}
+        // Off-screen: render on demand only (one compile frame at mount, then
+        // idle) so this transmission+bloom stage costs ~0 GPU when it isn't in
+        // view — several heavy scenes can coexist without stalling the thread.
+        frameloop={active ? 'always' : 'demand'}
+        dpr={[1, lowPower ? 1.2 : reduced ? 1.3 : 1.8]}
         camera={{ position: [0, 0, CAMERA_Z], fov: 32 }}
-        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        gl={{ antialias: !lowPower, powerPreference: 'high-performance' }}
       >
         <Suspense fallback={null}>
-          <Scene focus={focus} reduced={reduced} compact={compact} />
+          <Scene focus={focus} reduced={reduced} compact={compact} lowPower={lowPower} />
         </Suspense>
       </Canvas>
     </div>

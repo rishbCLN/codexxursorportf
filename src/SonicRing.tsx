@@ -284,14 +284,15 @@ function Warp({ progress }: { progress: MotionValue<number> }) {
   )
 }
 
-export default function SonicRing({ progress }: { progress: MotionValue<number> }) {
+export default function SonicRing({ progress, active = true, lowPower = false }: { progress: MotionValue<number>; active?: boolean; lowPower?: boolean }) {
   const { canvasKey, onCreated } = useWebGLResilience()
   return (
     <div className="hero-ring-canvas" aria-hidden="true">
       <Canvas
         key={canvasKey}
         onCreated={onCreated}
-        dpr={[1, 1.7]}
+        frameloop={active ? 'always' : 'demand'}
+        dpr={[1, lowPower ? 1.3 : 1.7]}
         camera={{ position: [0, 0, 6], fov: 30 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       >
