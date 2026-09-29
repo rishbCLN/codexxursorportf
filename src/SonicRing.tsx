@@ -1,5 +1,6 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useWebGLResilience } from './useWebGLResilience'
+import { DevPerf } from './DevPerf'
 import { Environment, Lightformer, Preload } from '@react-three/drei'
 import { Suspense, useMemo, useRef } from 'react'
 import type { Ref } from 'react'
@@ -311,6 +312,7 @@ export default function SonicRing({ progress, active = true, lowPower = false }:
           <Preload all />
           <WarmupProbe />
         </Suspense>
+        <DevPerf />
       </Canvas>
     </div>
   )

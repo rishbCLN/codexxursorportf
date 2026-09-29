@@ -1,8 +1,9 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useWebGLResilience } from './useWebGLResilience'
+import { DevPerf } from './DevPerf'
 import { Environment, Lightformer, MeshTransmissionMaterial, Sparkles } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
-import { Suspense, useMemo, useRef } from 'react'
+import { Suspense, useEffect, useMemo, useRef } from 'react'
 import type { MotionValue } from 'framer-motion'
 import * as THREE from 'three'
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
@@ -11,15 +12,9 @@ import { siGithub, siGmail } from 'simple-icons'
 /*
   THE CONSTELLATION — the contact section as three levitating crystal prisms,
   each refracting the environment and cradling a glowing, extruded 3D brand mark
-  (GitHub / LinkedIn / Gmail). A single `focus` MotionValue (-1 = idle, else the
-  hovered/focused node index) is driven by the DOM cards in App.tsx and read here
-  every frame, so the WebGL stays in perfect lockstep with the crisp DOM CTAs
-  layered on top. When a node is focused its prism swells, rides forward, and
-  flares; its siblings recede and dim. Bloom turns the emissive marks + acid
-  sparks into real light.
-
-  The SVG->ExtrudeGeometry logo pipeline mirrors ToolkitCortex.tsx so the two
-  scenes share one proven, crash-safe approach to brand geometry.
+  (GitHub / LinkedIn / Gmail). Each prism is directly interactive with pointer
+  events: hovering springs and flares the crystal, while clicking navigates directly
+  to the channel (GitHub, LinkedIn, Email).
 */
 
 // The acid signal — unifies all three prisms regardless of brand colour.
@@ -36,10 +31,10 @@ const siLinkedinPath =
 
 // Brand marks lifted to read on the dark stage: GitHub's near-black becomes warm
 // paper, LinkedIn/Gmail keep a brightened brand hue. The acid glow ties them together.
-const NODES: { key: string; icon: Brand; tint: string }[] = [
-  { key: 'github', icon: siGithub, tint: '#f2f1eb' },
-  { key: 'linkedin', icon: { path: siLinkedinPath, hex: '0A66C2' }, tint: '#6fb2e8' },
-  { key: 'gmail', icon: siGmail, tint: '#ef5b4c' },
+const NODES: { key: string; icon: Brand; tint: string; href: string; label: string }[] = [
+  { key: 'github', icon: siGithub, tint: '#f2f1eb', href: 'https://github.com/rishbCLN', label: 'GitHub' },
+  { key: 'linkedin', icon: { path: siLinkedinPath, hex: '0A66C2' }, tint: '#6fb2e8', href: 'https://linkedin.com', label: 'LinkedIn' },
+  { key: 'gmail', icon: siGmail, tint: '#ef5b4c', href: 'mailto:rishabh.kumar2024@vitstudent.ac.in', label: 'Email' },
 ]
 
 // --- Extruded-logo geometry (cached; crash-safe) -------------------------
@@ -152,7 +147,7 @@ function Prism({
   fit,
 }: {
   index: number
-  node: { key: string; icon: Brand; tint: string }
+  node: (typeof NODES)[number]
   focus: MotionValue<number>
   reduced: boolean
   offsetX: number
@@ -240,11 +235,34 @@ function Prism({
     // floats OUTSIDE the glass (see the logo group below) then sits exactly on the
     // camera→prism sight line — centred over its gem with no side-prism parallax.
     // On a phone the prisms stack VERTICALLY (offsetY) instead of in a side-by-side
-    // row (offsetX), so they read as a column behind the stacked contact cards.
+    // row (offsetX). Hovering springs the gem, and clicking navigates directly.
     <group
       position={[offsetX, offsetY, 0]}
       rotation={[0, yaw, 0]}
+      onPointerOver={(e) => {
+        e.stopPropagation()
+        focus.set(index)
+        document.body.style.cursor = 'pointer'
+      }}
+      onPointerOut={() => {
+        focus.set(-1)
+        document.body.style.cursor = 'auto'
+      }}
+      onClick={(e) => {
+        e.stopPropagation()
+        if (node.href.startsWith('mailto:')) {
+          window.location.href = node.href
+        } else {
+          window.open(node.href, '_blank', 'noopener,noreferrer')
+        }
+      }}
     >
+      {/* Invisible generous hit volume so hovering and clicking anywhere around the prism/logo is immediate */}
+      <mesh position={[0, baseY, 0.8]} scale={[2.4, 3.4, 2.4]}>
+        <boxGeometry />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+
       {/* bobbing / springing assembly */}
       <group ref={inner} position={[0, baseY, 0]}>
         {/* refractive crystal shell — spins freely behind the mark floated in front */}
@@ -424,11 +442,26 @@ export default function ContactConstellation({
   lowPower?: boolean
 }) {
   const { canvasKey, onCreated } = useWebGLResilience()
+
+  useEffect(() => {
+    return () => {
+      document.body.style.cursor = 'auto'
+    }
+  }, [])
+
   return (
-    <div className="contact-canvas" aria-hidden="true">
+    <div className="contact-canvas">
       <Canvas
         key={canvasKey}
         onCreated={onCreated}
+        onPointerLeave={() => {
+          focus.set(-1)
+          document.body.style.cursor = 'auto'
+        }}
+        onPointerMissed={() => {
+          focus.set(-1)
+          document.body.style.cursor = 'auto'
+        }}
         // Off-screen: render on demand only (one compile frame at mount, then
         // idle) so this transmission+bloom stage costs ~0 GPU when it isn't in
         // view — several heavy scenes can coexist without stalling the thread.
@@ -440,6 +473,7 @@ export default function ContactConstellation({
         <Suspense fallback={null}>
           <Scene focus={focus} reduced={reduced} compact={compact} lowPower={lowPower} />
         </Suspense>
+        <DevPerf />
       </Canvas>
     </div>
   )

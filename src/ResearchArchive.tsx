@@ -1,5 +1,6 @@
 import { Canvas, useFrame } from '@react-three/fiber'
 import { useWebGLResilience } from './useWebGLResilience'
+import { DevPerf } from './DevPerf'
 import { Environment, Lightformer, MeshTransmissionMaterial, RoundedBox, Sparkles } from '@react-three/drei'
 import { Suspense, useEffect, useMemo, useRef } from 'react'
 import { useTransform } from 'framer-motion'
@@ -247,6 +248,12 @@ function CameraRig({ exit }: { exit?: MotionValue<number> }) {
     // monotonic-smoothed scroll value (App.tsx) instead of a spring, so it never
     // overshoots its scroll target and springs back on a mid-plunge stop; the
     // lerp below is the only easing and it only ever approaches, never crosses.
+    //
+    // maath integration point (installed, not yet wired): these frame-rate-
+    // dependent `MathUtils.lerp(..., 0.08)` calls are the textbook case for
+    // `maath/easing`'s frame-rate-independent `damp`/`damp3` (pass `delta`) —
+    // swap in when this rig is next revisited. Left as-is now to avoid changing
+    // the tuned dive feel in a mechanical pass.
     const targetZ = 9 - e * 5.6
     const targetY = 0.3 - e * 0.2
     camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetZ, 0.08)
@@ -591,6 +598,7 @@ export default function ResearchArchive({
         <Suspense fallback={null}>
           <Scene slides={slides} progress={progress} exit={exit} accent={accent} lowPower={lowPower} />
         </Suspense>
+        <DevPerf />
       </Canvas>
     </div>
   )

@@ -1,5 +1,6 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useWebGLResilience } from './useWebGLResilience'
+import { DevPerf } from './DevPerf'
 import { Environment, Lightformer, MeshTransmissionMaterial } from '@react-three/drei'
 import { Suspense, useMemo, useRef } from 'react'
 import type { MutableRefObject } from 'react'
@@ -471,6 +472,7 @@ export default function ToolkitCortex({
         <Suspense fallback={null}>
           <Scene accent={accent} coarse={coarse} />
         </Suspense>
+        <DevPerf />
       </Canvas>
     </div>
   )

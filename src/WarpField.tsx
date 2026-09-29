@@ -1,5 +1,6 @@
 import { Canvas, useFrame } from '@react-three/fiber'
 import { useWebGLResilience } from './useWebGLResilience'
+import { DevPerf } from './DevPerf'
 import { Environment, Lightformer, RoundedBox, Float, Preload } from '@react-three/drei'
 import { EffectComposer, Bloom, Vignette, N8AO } from '@react-three/postprocessing'
 import { Suspense, useMemo, useRef, useEffect } from 'react'
@@ -885,6 +886,7 @@ export default function WarpField({ progress, active = true, lowPower = false }:
               lifts onto a warp that still has to compile on the first scroll. */}
           <WarmupProbe frames={WARM_FRAMES + 6} />
         </Suspense>
+        <DevPerf />
       </Canvas>
     </motion.div>
   )

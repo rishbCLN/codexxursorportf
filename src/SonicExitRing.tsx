@@ -1,5 +1,6 @@
 import { Canvas, useFrame } from '@react-three/fiber'
 import { useWebGLResilience } from './useWebGLResilience'
+import { DevPerf } from './DevPerf'
 import { Environment, Lightformer, Preload } from '@react-three/drei'
 import { Suspense, useRef } from 'react'
 import { motion, useTransform, useMotionTemplate, cubicBezier } from 'framer-motion'
@@ -136,6 +137,7 @@ export default function SonicExitRing({ progress, active = true, lowPower = fals
           <Preload all />
           <WarmupProbe />
         </Suspense>
+        <DevPerf />
       </Canvas>
     </motion.div>
   )

@@ -17,7 +17,6 @@ import {
   TerminalSquare,
   Zap,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import SceneBoundary from './SceneBoundary'
 import type { ChangeEvent, CSSProperties } from 'react'
@@ -1235,11 +1234,35 @@ function PrinciplesSection() {
         <span className="horizon-line" />
         <span className="horizon-flare" />
       </div>
-      <div className="principles-sticky">
-        <div className="section-tag"><span>04</span> / PRINCIPLES</div>
-        <h2>THE RULES<br />BEHIND THE<br /><i>WORK.</i></h2>
-        <p>Not trends. Not a style guide. Four durable ideas that shape every technical and creative decision.</p>
-      </div>
+      <motion.div
+        className="principles-sticky"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: '0px 0px -12% 0px' }}
+        variants={headStagger}
+      >
+        <motion.div
+          className="section-tag"
+          variants={tagReveal}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <span>04</span> / PRINCIPLES
+        </motion.div>
+        <h2>
+          <span className="line-mask">
+            <motion.span className="line-inner" variants={lineReveal} transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}>THE RULES</motion.span>
+          </span>
+          <span className="line-mask">
+            <motion.span className="line-inner" variants={lineReveal} transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.06 }}>BEHIND THE</motion.span>
+          </span>
+          <span className="line-mask">
+            <motion.span className="line-inner" variants={lineReveal} transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.12 }}><i>WORK.</i></motion.span>
+          </span>
+        </h2>
+        <motion.p variants={softReveal} transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}>
+          Not trends. Not a style guide. Four durable ideas that shape every technical and creative decision.
+        </motion.p>
+      </motion.div>
       <div className="principles-cards">
         {principles.map((principle, index) => (
           <motion.article
@@ -1301,10 +1324,29 @@ function TechnologySection() {
           </SceneBoundary>
         )}
 
-        <div className="toolkit-head">
-          <div className="section-tag"><span>05</span> / TOOLKIT</div>
-          <h2>TOOLS, CHOSEN<br /><i>WITH INTENTION.</i></h2>
-        </div>
+        <motion.div
+          className="toolkit-head"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '0px 0px -12% 0px' }}
+          variants={headStagger}
+        >
+          <motion.div
+            className="section-tag"
+            variants={tagReveal}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <span>05</span> / TOOLKIT
+          </motion.div>
+          <h2>
+            <span className="line-mask">
+              <motion.span className="line-inner" variants={lineReveal} transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}>TOOLS, CHOSEN</motion.span>
+            </span>
+            <span className="line-mask">
+              <motion.span className="line-inner" variants={lineReveal} transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.06 }}><i>WITH INTENTION.</i></motion.span>
+            </span>
+          </h2>
+        </motion.div>
       </div>
     </section>
   )
@@ -1597,6 +1639,22 @@ const softReveal = {
   visible: { opacity: 1, y: 0, filter: 'blur(0px)' },
 }
 
+// Shared "section head" reveal vocabulary for the previously-static heads/tags
+// (work, principles, technology + their numbered tags). The parent only
+// orchestrates timing — it carries NO transform of its own, so it is safe to put
+// on a `position:sticky` / `position:absolute` container. The numbered tag leads
+// with a quiet fade-rise, then the head lines rise out of their masks (reusing
+// `lineReveal`), so each section resolves as one small orchestrated moment in the
+// same language as the hero and project titles.
+const headStagger: Variants = {
+  hidden: {},
+  visible: { transition: { delayChildren: 0.05, staggerChildren: 0.12 } },
+}
+const tagReveal: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0 },
+}
+
 function Project({ project, position }: { project: typeof projects[number], position: number }) {
   const lines = project.title.split('\n')
   return (
@@ -1713,33 +1771,12 @@ const heroMaskGlow: Variants = {
 
 // --- Contact ---------------------------------------------------------------
 
-const CONTACT_NODES: { key: string; label: string; handle: string; href: string; cta: string; Icon: LucideIcon }[] = [
-  { key: 'github', label: 'GitHub', handle: 'github.com/rishbCLN', href: 'https://github.com/rishbCLN', cta: 'View GitHub', Icon: Github },
-  { key: 'linkedin', label: 'LinkedIn', handle: 'LinkedIn', href: 'https://linkedin.com', cta: 'View LinkedIn', Icon: Linkedin },
-  { key: 'email', label: 'Email', handle: 'rishabh.kumar2024@vitstudent.ac.in', href: 'mailto:rishabh.kumar2024@vitstudent.ac.in', cta: 'Send an email', Icon: Mail },
-]
-
 // The prism stage resolves as one piece: the whole canvas WRAPPER (never the 3D
 // scene inside — that stays untouched) fades up out of a soft blur and settles to
 // full clarity, like the constellation coming into focus.
 const canvasReveal: Variants = {
   rest: { opacity: 0, scale: 0.94, filter: 'blur(12px)' },
   show: { opacity: 1, scale: 1, filter: 'blur(0px)' },
-}
-
-const ctaVariants: Variants = {
-  // Each CTA resolves a beat after the prisms — a quiet rise out of a light blur
-  // into a crisp, tappable control. Driven by the grid's stagger container below,
-  // so the three arrive one-after-another as the section settles, then stay.
-  rest: { y: 24, opacity: 0, filter: 'blur(10px)' },
-  show: { y: 0, opacity: 1, filter: 'blur(0px)' },
-}
-
-// Parent container: holds the buttons hidden until the section is in view, then
-// releases them in a delayed, staggered cascade (after the prisms have settled).
-const gridStagger: Variants = {
-  rest: {},
-  show: { transition: { delayChildren: 0.7, staggerChildren: 0.16 } },
 }
 
 // The headline resolves line-by-line out of an overflow mask — the same rising
@@ -1777,76 +1814,6 @@ const footItem: Variants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: CONTACT_EASE } },
 }
 
-function ContactNode({
-  node,
-  index,
-  active,
-  reduced,
-  onEnter,
-  onLeave,
-}: {
-  node: (typeof CONTACT_NODES)[number]
-  index: number
-  active: number | null
-  reduced: boolean
-  onEnter: (i: number) => void
-  onLeave: () => void
-}) {
-  const ref = useRef<HTMLAnchorElement>(null)
-  const mx = useMotionValue(0)
-  const my = useMotionValue(0)
-  // Pointer position over the card drives a real 3D tilt on the CTA control —
-  // damped for a subtle, premium lean rather than a toy wobble.
-  const rotX = useTransform(my, [-30, 30], [8, -8])
-  const rotY = useTransform(mx, [-30, 30], [-10, 10])
-  const external = node.href.startsWith('http')
-  const isActive = active === index
-
-  return (
-    <motion.a
-      ref={ref}
-      href={node.href}
-      className={`contact-node${isActive ? ' is-active' : ''}`}
-      target={external ? '_blank' : undefined}
-      rel={external ? 'noopener noreferrer' : undefined}
-      aria-label={`${node.label} — ${node.handle}`}
-      onMouseEnter={() => onEnter(index)}
-      onFocus={() => onEnter(index)}
-      onBlur={onLeave}
-      onMouseMove={(event) => {
-        const rect = ref.current?.getBoundingClientRect()
-        if (!rect || reduced) return
-        mx.set((event.clientX - rect.left - rect.width / 2) * 0.11)
-        my.set((event.clientY - rect.top - rect.height / 2) * 0.11)
-      }}
-      onMouseLeave={() => { mx.set(0); my.set(0); onLeave() }}
-    >
-      <span className="contact-node-glyph" aria-hidden="true"><node.Icon /></span>
-      <span className="contact-node-name">{node.label}</span>
-
-      <motion.span
-        className="contact-cta"
-        variants={ctaVariants}
-        transition={
-          reduced
-            ? { duration: 0.001 }
-            : { type: 'spring', stiffness: 240, damping: 26, mass: 0.9, opacity: { duration: 0.55 }, filter: { duration: 0.72, ease: [0.22, 1, 0.36, 1] } }
-        }
-      >
-        <motion.span
-          className="contact-cta-face"
-          style={{ transformPerspective: 620, rotateX: rotX, rotateY: rotY, x: mx, y: my }}
-        >
-          <node.Icon />
-          <b>{node.cta}</b>
-        </motion.span>
-      </motion.span>
-
-      <span className="contact-node-handle">{node.handle}</span>
-    </motion.a>
-  )
-}
-
 function ContactSection() {
   const ref = useRef<HTMLElement>(null)
   const inView = useInView(ref, { once: true, margin: '200px 0px' })
@@ -1862,7 +1829,6 @@ function ContactSection() {
   // for everyone. We intentionally ignore the OS reduced-motion preference here
   // (native scrolling is still respected via Lenis being gated separately).
   const reduced = false
-  const [active, setActive] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
   const [compact, setCompact] = useState(false)
   const focus = useMotionValue(-1)
@@ -1873,11 +1839,8 @@ function ContactSection() {
   const availMonth = now.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()
   const availYear = String(now.getFullYear()).slice(-2)
 
-  // The prisms run on EVERY device. There are no flat contact "cards" anymore —
-  // no box, border, glyph tile, name or handle text around them. On every screen
-  // the presentation is the same: floating CTA pills over the glass prisms. We
-  // still track a narrow (<=600px) `compact` flag purely so the scene can stack
-  // the prisms vertically and tighten their scale for a phone frame.
+  // Prisms are directly interactive via 3D pointer events. Compact flag stacks
+  // the prisms vertically on mobile screens.
   useEffect(() => {
     const widthMq = window.matchMedia('(max-width: 600px)')
     const sync = () => setCompact(widthMq.matches)
@@ -1885,9 +1848,6 @@ function ContactSection() {
     widthMq.addEventListener('change', sync)
     return () => widthMq.removeEventListener('change', sync)
   }, [])
-
-  const enter = (i: number) => { setActive(i); focus.set(i) }
-  const leave = () => { setActive(null); focus.set(-1) }
 
   async function copyEmail() {
     try {
@@ -1929,7 +1889,6 @@ function ContactSection() {
         <div className="contact-stage" ref={stageRef}>
           <motion.div
             className="contact-canvas-layer"
-            aria-hidden="true"
             initial="rest"
             animate={sceneVisible ? 'show' : 'rest'}
             variants={canvasReveal}
@@ -1947,16 +1906,14 @@ function ContactSection() {
             )}
           </motion.div>
 
-          <motion.div
-            className={`contact-grid${active != null ? ' is-engaged' : ''}`}
-            initial="rest"
-            animate={inView ? 'show' : 'rest'}
-            variants={gridStagger}
-          >
-            {CONTACT_NODES.map((node, i) => (
-              <ContactNode key={node.key} node={node} index={i} active={active} reduced={reduced} onEnter={enter} onLeave={leave} />
-            ))}
-          </motion.div>
+          <div className="sr-only">
+            <h3>Direct Contact Channels</h3>
+            <ul>
+              <li><a href="https://github.com/rishbCLN" target="_blank" rel="noopener noreferrer">GitHub (github.com/rishbCLN)</a></li>
+              <li><a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">LinkedIn</a></li>
+              <li><a href="mailto:rishabh.kumar2024@vitstudent.ac.in">Email (rishabh.kumar2024@vitstudent.ac.in)</a></li>
+            </ul>
+          </div>
         </div>
       </div>
 
@@ -2200,6 +2157,14 @@ function App() {
               </div>
 
               <h1 className="hero-title">
+                {/* split-type integration point (installed, not yet wired):
+                    these hero lines — especially `.hero-line-serif` — are the
+                    prime candidates for per-line/word/char splitting. Pattern:
+                    `const st = new SplitType(el, { types: 'lines,words' })`,
+                    animate `.line`/`.word` via the existing Framer Motion
+                    reveal, and call `st.revert()` on cleanup / before re-split
+                    on resize so layout stays correct. Left as documented
+                    follow-up to avoid disturbing the working heroMask reveal. */}
                 <span className="hero-line">
                   <motion.span variants={heroMask} custom={0} initial="hidden" animate={heroShown ? 'show' : 'hidden'}>Building digital</motion.span>
                 </span>
@@ -2263,7 +2228,16 @@ function App() {
         </section>
 
         <section className="statement" id="about">
-          <div className="section-tag"><span>01</span> / MANIFESTO</div>
+          <motion.div
+            className="section-tag"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '0px 0px -10% 0px' }}
+            variants={tagReveal}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <span>01</span> / MANIFESTO
+          </motion.div>
           <Reveal>
             <p className="statement-copy">I BUILD <span>FROM FIRST PRINCIPLES</span> TO LEARN HOW SYSTEMS REALLY WORK, THEN SHAPE THEM INTO THINGS THAT FEEL <i>INEVITABLE</i>, NOT FAMILIAR.</p>
           </Reveal>
@@ -2280,10 +2254,34 @@ function App() {
         </div>
 
         <section className="work" id="work">
-          <div className="work-heading">
-            <div className="section-tag"><span>02</span> / FEATURED PROJECTS</div>
-            <p>THREE SYSTEMS.<br />ONE CONTINUOUS FIELD.</p>
-          </div>
+          <motion.div
+            className="work-heading"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '0px 0px -12% 0px' }}
+            variants={headStagger}
+          >
+            <motion.div
+              className="section-tag"
+              variants={tagReveal}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <span>02</span> / FEATURED PROJECTS
+            </motion.div>
+            <p>
+              {['THREE SYSTEMS.', 'ONE CONTINUOUS FIELD.'].map((line, i) => (
+                <span className="line-mask" key={line}>
+                  <motion.span
+                    className="line-inner"
+                    variants={lineReveal}
+                    transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: i * 0.06 }}
+                  >
+                    {line}
+                  </motion.span>
+                </span>
+              ))}
+            </p>
+          </motion.div>
           <div className="project-field">
             {projects.map((project, position) => <Project project={project} position={position} key={project.index} />)}
           </div>

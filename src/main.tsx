@@ -1,8 +1,11 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { Analytics } from '@vercel/analytics/react'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import 'lenis/dist/lenis.css'
 import App from './App'
 import SceneBoundary from './SceneBoundary'
+import { DevLeva } from './DevLeva'
 import './styles.css'
 
 // Root-level boundary so a single unexpected throw can never blank the whole
@@ -47,6 +50,12 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <SceneBoundary label="root" fallback={RootFallback}>
       <App />
+      {/* Vercel telemetry — no-ops locally, beacons to Vercel only in
+          production. DevLeva renders nothing unless in dev with the ?perf /
+          perfHud gate on, and its leva import is dropped from prod builds. */}
+      <Analytics />
+      <SpeedInsights />
+      <DevLeva />
     </SceneBoundary>
   </StrictMode>,
 )
